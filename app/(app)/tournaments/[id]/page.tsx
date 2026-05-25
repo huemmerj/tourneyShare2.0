@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { TournamentActions, CopyButton } from "./tournament-actions";
+import { GenerateBracketButton } from "./generate-bracket-button";
+import { MatchesView } from "./matches-view";
 import type { Tournament } from "@/lib/types";
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -49,13 +51,43 @@ export default async function TournamentPage({
 
   const isOwner = tournament.owner_id === session.user.id;
 
-  const { data: participants } = await supabaseAdmin
+  const { data: rawParticipants } = await supabaseAdmin
     .from("participants")
-    .select("id, user_id, guest_token_id, status, registered_at")
+    .select("id, tournament_id, user_id, guest_token_id, team_id, seed, status, registered_at")
     .eq("tournament_id", id)
     .order("registered_at");
 
-  const participantCount = participants?.length ?? 0;
+  const participantCount = rawParticipants?.length ?? 0;
+  const confirmedCount = rawParticipants?.filter((p) => p.status === "confirmed").length ?? 0;
+
+  const userIds = rawParticipants?.filter((p) => p.user_id).map((p) => p.user_id as string) ?? [];
+  const guestIds = rawParticipants?.filter((p) => p.guest_token_id).map((p) => p.guest_token_id as string) ?? [];
+
+  const [usersRes, guestsRes, matchesRes] = await Promise.all([
+    userIds.length > 0
+      ? supabaseAdmin.from("user").select("id, name, email").in("id", userIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; email: string }[] }),
+    guestIds.length > 0
+      ? supabaseAdmin.from("guest_tokens").select("id, display_name").in("id", guestIds)
+      : Promise.resolve({ data: [] as { id: string; display_name: string }[] }),
+    supabaseAdmin
+      .from("matches")
+      .select("*")
+      .eq("tournament_id", id)
+      .order("round_number")
+      .order("match_number"),
+  ]);
+
+  const usersMap = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
+  const guestsMap = new Map((guestsRes.data ?? []).map((g) => [g.id, g]));
+
+  const participants = (rawParticipants ?? []).map((p) => ({
+    ...p,
+    user: p.user_id ? (usersMap.get(p.user_id) ?? null) : null,
+    guest: p.guest_token_id ? (guestsMap.get(p.guest_token_id) ?? null) : null,
+  }));
+
+  const matches = matchesRes.data ?? [];
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join/${tournament.invite_code}`;
 
@@ -147,20 +179,25 @@ export default async function TournamentPage({
             <span className="text-muted-foreground">({participantCount})</span>
           </h2>
         </div>
-        {participants && participants.length > 0 ? (
+        {participants.length > 0 ? (
           <ul className="divide-y divide-border">
-            {participants.map((p) => (
-              <li key={p.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                <span className="text-foreground">
-                  {p.user_id ? `User ${p.user_id.slice(0, 8)}…` : "Guest"}
-                </span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                  p.status === "confirmed" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                }`}>
-                  {p.status}
-                </span>
-              </li>
-            ))}
+            {participants.map((p) => {
+              const displayName = p.guest
+                ? p.guest.display_name
+                : p.user
+                  ? p.user.name || p.user.email
+                  : `User ${(p.user_id ?? "").slice(0, 8)}…`;
+              return (
+                <li key={p.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <span className="text-foreground">{displayName}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                    p.status === "confirmed" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {p.status}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -168,6 +205,22 @@ export default async function TournamentPage({
           </p>
         )}
       </div>
+
+      {/* Generate bracket */}
+      {isOwner && tournament.status === "registration" && confirmedCount >= 2 && (
+        <div className="mt-4 rounded-xl border border-border bg-card p-4">
+          <h2 className="mb-1 text-sm font-semibold text-foreground">Bracket</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            {confirmedCount} confirmed participant{confirmedCount !== 1 ? "s" : ""}. Ready to generate.
+          </p>
+          <GenerateBracketButton tournamentId={id} />
+        </div>
+      )}
+
+      {/* Matches */}
+      {matches.length > 0 && (
+        <MatchesView matches={matches} participants={participants} />
+      )}
     </div>
   );
 }
