@@ -1,14 +1,14 @@
 import { betterAuth } from "better-auth";
+import { nextCookies } from "better-auth/next-js";
+import { Pool } from "pg";
 
 export const auth = betterAuth({
-  database: {
-    provider: "postgresql",
-    url: process.env.DATABASE_URL!,
-  },
+  database: new Pool({ connectionString: process.env.DATABASE_URL }),
   emailAndPassword: {
     enabled: true,
   },
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
+  plugins: [nextCookies()],
   user: {
     additionalFields: {
       displayName: {
