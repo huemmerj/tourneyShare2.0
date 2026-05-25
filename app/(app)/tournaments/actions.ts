@@ -131,6 +131,94 @@ export async function generateTournamentBracket(
   return { ok: true };
 }
 
+export async function reportMatchResult(
+  matchId: string,
+  scoreA: number,
+  scoreB: number,
+  winnerId: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  // Load the match
+  const { data: match } = await supabaseAdmin
+    .from("matches")
+    .select("tournament_id, participant_a_id, participant_b_id, status, next_winner_match_id, next_loser_match_id")
+    .eq("id", matchId)
+    .single();
+
+  if (!match) return { error: "Match not found" };
+
+  // Verify tournament ownership and active status
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, status")
+    .eq("id", match.tournament_id)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+  if (tournament.status !== "active") return { error: "Tournament is not active" };
+
+  if (match.status === "bye") return { error: "Cannot report result for a bye" };
+  if (match.status === "completed") return { error: "Match already completed" };
+
+  if (winnerId !== match.participant_a_id && winnerId !== match.participant_b_id)
+    return { error: "Winner must be one of the match participants" };
+
+  const loserId =
+    winnerId === match.participant_a_id ? match.participant_b_id : match.participant_a_id;
+
+  // Mark match completed
+  const { error: updateError } = await supabaseAdmin
+    .from("matches")
+    .update({
+      score_a: scoreA,
+      score_b: scoreB,
+      winner_id: winnerId,
+      status: "completed",
+      reported_by_user_id: session.user.id,
+    })
+    .eq("id", matchId);
+
+  if (updateError) return { error: updateError.message };
+
+  // Propagate winner into the next winner match (first empty slot)
+  if (match.next_winner_match_id) {
+    const { data: nextW } = await supabaseAdmin
+      .from("matches")
+      .select("participant_a_id, participant_b_id")
+      .eq("id", match.next_winner_match_id)
+      .single();
+    if (nextW) {
+      const slot = nextW.participant_a_id === null ? "participant_a_id" : "participant_b_id";
+      await supabaseAdmin
+        .from("matches")
+        .update({ [slot]: winnerId })
+        .eq("id", match.next_winner_match_id);
+    }
+  }
+
+  // Propagate loser into the next loser match (double elim)
+  if (match.next_loser_match_id && loserId) {
+    const { data: nextL } = await supabaseAdmin
+      .from("matches")
+      .select("participant_a_id, participant_b_id")
+      .eq("id", match.next_loser_match_id)
+      .single();
+    if (nextL) {
+      const slot = nextL.participant_a_id === null ? "participant_a_id" : "participant_b_id";
+      await supabaseAdmin
+        .from("matches")
+        .update({ [slot]: loserId })
+        .eq("id", match.next_loser_match_id);
+    }
+  }
+
+  revalidatePath(`/tournaments/${match.tournament_id}`);
+  return { ok: true };
+}
+
 export async function setTournamentStatus(
   id: string,
   status: "draft" | "registration" | "active" | "completed" | "cancelled"

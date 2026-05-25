@@ -219,7 +219,7 @@ export default async function TournamentPage({
 
       {/* Matches */}
       {matches.length > 0 && (
-        <MatchesView matches={matches} participants={participants} />
+        <MatchesView matches={matches} participants={participants} isOwner={isOwner} />
       )}
     </div>
   );

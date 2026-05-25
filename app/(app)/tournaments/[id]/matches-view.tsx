@@ -1,4 +1,5 @@
-import type { Participant, GuestToken } from "@/lib/types";
+import type { Participant } from "@/lib/types";
+import { ReportScoreDialog } from "./report-score-dialog";
 
 type Match = {
   id: string;
@@ -36,9 +37,11 @@ const BRACKET_ORDER = { winners: 0, losers: 1, grand_final: 2 } as const;
 export function MatchesView({
   matches,
   participants,
+  isOwner = false,
 }: {
   matches: Match[];
   participants: ParticipantWithName[];
+  isOwner?: boolean;
 }) {
   const pMap = new Map(participants.map((p) => [p.id, p]));
 
@@ -93,6 +96,13 @@ export function MatchesView({
               const isBye = m.status === "bye";
               const isCompleted = m.status === "completed";
 
+              const canReport =
+                isOwner &&
+                !isBye &&
+                !isCompleted &&
+                m.participant_a_id !== null &&
+                m.participant_b_id !== null;
+
               return (
                 <div
                   key={m.id}
@@ -112,17 +122,28 @@ export function MatchesView({
                       />
                     )}
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                      isBye
-                        ? "bg-muted text-muted-foreground"
-                        : isCompleted
-                          ? "bg-success/10 text-success"
-                          : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {isBye ? "Bye" : m.status}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {canReport && (
+                      <ReportScoreDialog
+                        matchId={m.id}
+                        nameA={nameA}
+                        nameB={nameB}
+                        participantAId={m.participant_a_id!}
+                        participantBId={m.participant_b_id!}
+                      />
+                    )}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                        isBye
+                          ? "bg-muted text-muted-foreground"
+                          : isCompleted
+                            ? "bg-success/10 text-success"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {isBye ? "Bye" : m.status}
+                    </span>
+                  </div>
                 </div>
               );
             })}
