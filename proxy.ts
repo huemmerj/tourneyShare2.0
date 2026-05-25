@@ -5,7 +5,10 @@ const protectedRoutes = ["/dashboard", "/profile"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = request.cookies.has("better-auth.session_token");
+  // In production better-auth prefixes cookies with __Secure-
+  const hasSession =
+    request.cookies.has("better-auth.session_token") ||
+    request.cookies.has("__Secure-better-auth.session_token");
 
   if (hasSession && authRoutes.some((r) => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
