@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateBracket } from "@/lib/bracket";
+import { createNotification, createNotifications } from "@/lib/notifications";
 import type { TournamentFormat, ParticipantType, Participant } from "@/lib/types";
 
 type TournamentInput = {
@@ -88,7 +89,7 @@ export async function generateTournamentBracket(
   // Load tournament (verify ownership + status)
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
-    .select("format, status, owner_id")
+    .select("name, format, status, owner_id")
     .eq("id", id)
     .single();
 
@@ -126,6 +127,16 @@ export async function generateTournamentBracket(
 
   if (statusError) return { error: statusError.message };
 
+  // Notify all user participants that the bracket is ready
+  await createNotifications(
+    participants.filter((p) => p.user_id).map((p) => ({ userId: p.user_id })),
+    {
+      tournamentId: id,
+      type: "bracket_ready",
+      message: `The bracket for "${tournament.name}" is ready. Check your first match!`,
+    }
+  );
+
   revalidatePath(`/tournaments/${id}`);
   revalidatePath("/dashboard");
   return { ok: true };
@@ -152,7 +163,7 @@ export async function reportMatchResult(
   // Verify tournament ownership and active status
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
-    .select("owner_id, status")
+    .select("name, owner_id, status")
     .eq("id", match.tournament_id)
     .single();
 
@@ -212,6 +223,27 @@ export async function reportMatchResult(
         .from("matches")
         .update({ [slot]: loserId })
         .eq("id", match.next_loser_match_id);
+    }
+  }
+
+  // Notify match participants of the result
+  const participantIds = [match.participant_a_id, match.participant_b_id].filter(Boolean) as string[];
+  if (participantIds.length > 0) {
+    const { data: matchParticipants } = await supabaseAdmin
+      .from("participants")
+      .select("id, user_id, guest_token_id")
+      .in("id", participantIds);
+
+    if (matchParticipants) {
+      await createNotifications(
+        matchParticipants.map((p) => ({ userId: p.user_id, guestTokenId: p.guest_token_id })),
+        {
+          tournamentId: match.tournament_id,
+          matchId: matchId,
+          type: "match_result",
+          message: `A match result has been reported in "${tournament.name}": ${scoreA}–${scoreB}.`,
+        }
+      );
     }
   }
 

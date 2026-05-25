@@ -3,6 +3,7 @@
 import { headers, cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { createNotification } from "@/lib/notifications";
 
 export async function joinTournament(
   tournamentId: string
@@ -23,7 +24,7 @@ export async function joinTournament(
   // Check tournament is open
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
-    .select("status, max_participants")
+    .select("name, status, max_participants, owner_id")
     .eq("id", tournamentId)
     .single();
 
@@ -46,6 +47,16 @@ export async function joinTournament(
   });
 
   if (error) return { error: error.message };
+
+  // Notify the tournament owner
+  const joinerName = session.user.name || session.user.email;
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `${joinerName} joined your tournament "${tournament.name}".`,
+  });
+
   return { ok: true };
 }
 
@@ -59,7 +70,7 @@ export async function guestJoinTournament(
   // Check tournament allows anonymous
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
-    .select("status, allow_anonymous, max_participants")
+    .select("name, status, allow_anonymous, max_participants, owner_id")
     .eq("id", tournamentId)
     .single();
 
@@ -95,6 +106,14 @@ export async function guestJoinTournament(
     });
 
   if (participantError) return { error: participantError.message };
+
+  // Notify the tournament owner
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `${trimmed} (guest) joined your tournament "${tournament.name}".`,
+  });
 
   // Set cookie so guest can reclaim their slot
   const cookieStore = await cookies();

@@ -3,10 +3,19 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
+import { NotificationsBell } from "@/components/notifications-bell";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/sign-in");
+
+  const { data: notifications } = await supabaseAdmin
+    .from("notifications")
+    .select("id, type, message, is_read, tournament_id, created_at")
+    .eq("user_id", session.user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -22,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             >
               {session.user.name ?? session.user.email}
             </Link>
+            <NotificationsBell notifications={notifications ?? []} />
             <SignOutButton />
           </nav>
         </div>
