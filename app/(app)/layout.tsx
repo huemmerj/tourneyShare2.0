@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <nav className="flex items-center gap-3">
             <Link
               href="/profile"
-              className="text-sm text-muted-foreground hover:text-foreground"
+              className="hidden max-w-[160px] truncate text-sm text-muted-foreground hover:text-foreground sm:block"
             >
               {session.user.name ?? session.user.email}
             </Link>

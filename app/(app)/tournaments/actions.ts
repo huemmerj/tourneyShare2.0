@@ -174,6 +174,9 @@ export async function reportMatchResult(
   if (match.status === "bye") return { error: "Cannot report result for a bye" };
   if (match.status === "completed") return { error: "Match already completed" };
 
+  if (!Number.isInteger(scoreA) || !Number.isInteger(scoreB) || scoreA < 0 || scoreB < 0)
+    return { error: "Scores must be non-negative integers" };
+
   if (winnerId !== match.participant_a_id && winnerId !== match.participant_b_id)
     return { error: "Winner must be one of the match participants" };
 
