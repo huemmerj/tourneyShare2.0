@@ -14,10 +14,12 @@ export function TeamAssignment({
   tournamentId,
   unassigned,
   assignedTeams,
+  teamCount,
 }: {
   tournamentId: string;
   unassigned: UnassignedParticipant[];
   assignedTeams: AssignedTeam[];
+  teamCount?: number | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -70,11 +72,11 @@ export function TeamAssignment({
   }
 
   function handleRandom() {
-    const size = parseInt(teamSize);
-    if (!size || size < 1) return;
     setError("");
     startTransition(async () => {
-      const result = await randomAssignTeams(tournamentId, size);
+      const result = teamCount
+        ? await randomAssignTeams(tournamentId, { teamCount })
+        : await randomAssignTeams(tournamentId, { teamSize: parseInt(teamSize) });
       if ("error" in result) setError(result.error);
       else router.refresh();
     });
@@ -172,21 +174,44 @@ export function TeamAssignment({
               <span className="text-xs text-muted-foreground">{t("common.or")}</span>
               <div className="h-px flex-1 bg-border" />
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-muted-foreground whitespace-nowrap">
-                {t("tournament.team_size_label")}
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={teamSize}
-                onChange={(e) => setTeamSize(e.target.value)}
-                className="h-9 w-16 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              />
-              <Button size="sm" variant="outline" onClick={handleRandom} disabled={isPending}>
-                {t("tournament.random_assign")}
-              </Button>
-            </div>
+            {teamCount ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {t("tournament.random_assign")} ({Math.max(0, teamCount - assignedTeams.length)}{" "}
+                  {t("tournament.new_teams")}:{" "}
+                  {(() => {
+                    const n = unassigned.length;
+                    const newTeams = Math.max(1, teamCount - assignedTeams.length);
+                    if (n === 0) return "";
+                    const base = Math.floor(n / newTeams);
+                    const rem = n % newTeams;
+                    const parts: string[] = [];
+                    if (rem > 0) parts.push(`${rem}× ${base + 1}`);
+                    if (newTeams - rem > 0) parts.push(`${newTeams - rem}× ${base}`);
+                    return parts.join(", ");
+                  })()})
+                </span>
+                <Button size="sm" variant="outline" onClick={handleRandom} disabled={isPending}>
+                  {t("tournament.random_assign")}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground whitespace-nowrap">
+                  {t("tournament.team_size_label")}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={teamSize}
+                  onChange={(e) => setTeamSize(e.target.value)}
+                  className="h-9 w-16 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+                <Button size="sm" variant="outline" onClick={handleRandom} disabled={isPending}>
+                  {t("tournament.random_assign")}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

@@ -20,6 +20,8 @@ export default function NewTournamentPage() {
   const [participantType, setParticipantType] = useState<ParticipantType>("solo");
   const [maxParticipants, setMaxParticipants] = useState("");
   const [maxTeamSize, setMaxTeamSize] = useState("");
+  const [teamSizeMode, setTeamSizeMode] = useState<"size" | "count">("size");
+  const [teamCount, setTeamCount] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isPublic, setIsPublic] = useState(false);
@@ -29,6 +31,29 @@ export default function NewTournamentPage() {
   const [teamMode, setTeamMode] = useState<"self_select" | "admin_assigned">("self_select");
   const [groupCount, setGroupCount] = useState("2");
   const [advancePerGroup, setAdvancePerGroup] = useState("2");
+
+  // Calculate team distribution when team_count or max_participants changes
+  const teamDistribution = (() => {
+    if (teamSizeMode === "count" && teamCount && maxParticipants) {
+      const participants = parseInt(maxParticipants);
+      const teams = parseInt(teamCount);
+      
+      if (participants >= 2 && teams >= 2 && teams <= participants) {
+        const baseSize = Math.floor(participants / teams);
+        const remainder = participants % teams;
+        
+        const distribution: Array<{ size: number; count: number }> = [];
+        if (remainder > 0) {
+          distribution.push({ size: baseSize + 1, count: remainder });
+        }
+        if (teams - remainder > 0) {
+          distribution.push({ size: baseSize, count: teams - remainder });
+        }
+        return distribution;
+      }
+    }
+    return [];
+  })();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +68,9 @@ export default function NewTournamentPage() {
       participant_type: participantType,
       max_participants: maxParticipants ? parseInt(maxParticipants) : null,
       max_team_size:
-        participantType === "team" && maxTeamSize ? parseInt(maxTeamSize) : null,
+        participantType === "team" && teamSizeMode === "size" && maxTeamSize ? parseInt(maxTeamSize) : null,
+      team_count:
+        participantType === "team" && teamSizeMode === "count" && teamCount ? parseInt(teamCount) : null,
       start_date: startDate || null,
       end_date: endDate || null,
       is_public: isPublic,
@@ -169,16 +196,66 @@ export default function NewTournamentPage() {
             />
           </Field>
           {participantType === "team" && (
-            <Field label={t("tournament.max_team_size")}>
-              <input
-                type="number"
-                min={1}
-                value={maxTeamSize}
-                onChange={(e) => setMaxTeamSize(e.target.value)}
-                placeholder={t("common.no_limit")}
-                className={inputCls}
-              />
-            </Field>
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="teamSizeMode"
+                    checked={teamSizeMode === "size"}
+                    onChange={() => setTeamSizeMode("size")}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">{t("tournament.team_size")}</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="teamSizeMode"
+                    checked={teamSizeMode === "count"}
+                    onChange={() => setTeamSizeMode("count")}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">{t("tournament.team_count")}</span>
+                </label>
+              </div>
+              
+              {teamSizeMode === "size" ? (
+                <Field label={t("tournament.max_team_size")}>
+                  <input
+                    type="number"
+                    min={1}
+                    value={maxTeamSize}
+                    onChange={(e) => setMaxTeamSize(e.target.value)}
+                    placeholder={t("common.no_limit")}
+                    className={inputCls}
+                  />
+                </Field>
+              ) : (
+                <>
+                  <Field label={t("tournament.team_count_label")} required>
+                    <input
+                      type="number"
+                      min={2}
+                      max={maxParticipants ? parseInt(maxParticipants) : undefined}
+                      required
+                      value={teamCount}
+                      onChange={(e) => setTeamCount(e.target.value)}
+                      placeholder={t("tournament.team_count_placeholder")}
+                      className={inputCls}
+                    />
+                  </Field>
+                  {teamDistribution.length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      {t("tournament.team_distribution")}:{" "}
+                      {teamDistribution
+                        .map((d) => `${d.count}× ${d.size}`)
+                        .join(", ")}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
           {participantType === "team" && (
             <Field label={t("tournament.team_mode")}>

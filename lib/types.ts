@@ -26,6 +26,7 @@ export type Tournament = {
   participant_type: ParticipantType;
   max_participants: number | null;
   max_team_size: number | null;
+  team_count: number | null;
   start_date: string | null;
   end_date: string | null;
   status: TournamentStatus;

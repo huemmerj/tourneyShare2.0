@@ -8,6 +8,39 @@ import { generateBracket, generateKnockoutMatches } from "@/lib/bracket";
 import { createNotification, createNotifications } from "@/lib/notifications";
 import type { TournamentFormat, ParticipantType, Participant } from "@/lib/types";
 
+function calculateTeamDistribution(participants: number, teamCount: number) {
+  const baseSize = Math.floor(participants / teamCount);
+  const remainder = participants % teamCount;
+  
+  const largeTeams = remainder;
+  const smallTeams = teamCount - remainder;
+  
+  const distribution: Array<{ size: number; count: number }> = [];
+  if (largeTeams > 0) {
+    distribution.push({ size: baseSize + 1, count: largeTeams });
+  }
+  if (smallTeams > 0) {
+    distribution.push({ size: baseSize, count: smallTeams });
+  }
+  
+  return {
+    min: baseSize,
+    max: baseSize + (remainder > 0 ? 1 : 0),
+    distribution,
+  };
+}
+
+export async function getTeamDistribution(
+  maxParticipants: number,
+  teamCount: number
+): Promise<{ distribution: Array<{ size: number; count: number }>; min: number; max: number } | { error: string }> {
+  if (maxParticipants < 2) return { error: "Need at least 2 participants" };
+  if (teamCount < 2) return { error: "Need at least 2 teams" };
+  if (teamCount > maxParticipants) return { error: "Cannot have more teams than participants" };
+  
+  return calculateTeamDistribution(maxParticipants, teamCount);
+}
+
 type TournamentInput = {
   name: string;
   description?: string;
@@ -16,6 +49,7 @@ type TournamentInput = {
   participant_type: ParticipantType;
   max_participants?: number | null;
   max_team_size?: number | null;
+  team_count?: number | null;
   start_date?: string | null;
   end_date?: string | null;
   is_public: boolean;
@@ -37,9 +71,17 @@ export async function createTournament(
   const session = await getSession();
   if (!session) return { error: "Not authenticated" };
 
+  // Calculate max_team_size from team_count if provided
+  const insertData = { ...data, owner_id: session.user.id };
+  
+  if (data.team_count && data.max_participants && data.participant_type === "team") {
+    const distribution = calculateTeamDistribution(data.max_participants, data.team_count);
+    insertData.max_team_size = distribution.max;
+  }
+
   const { data: tournament, error } = await supabaseAdmin
     .from("tournaments")
-    .insert({ ...data, owner_id: session.user.id })
+    .insert(insertData)
     .select("id")
     .single();
 
@@ -55,9 +97,29 @@ export async function updateTournament(
   const session = await getSession();
   if (!session) return { error: "Not authenticated" };
 
+  // Calculate max_team_size from team_count if provided
+  const updateData = { ...data };
+  
+  if (data.team_count && data.max_participants && data.participant_type === "team") {
+    const distribution = calculateTeamDistribution(data.max_participants, data.team_count);
+    updateData.max_team_size = distribution.max;
+  } else if (data.team_count && !data.max_participants && data.participant_type === "team") {
+    // If team_count is set but max_participants is not, we need to fetch current max_participants
+    const { data: tournament } = await supabaseAdmin
+      .from("tournaments")
+      .select("max_participants")
+      .eq("id", id)
+      .single();
+    
+    if (tournament?.max_participants) {
+      const distribution = calculateTeamDistribution(tournament.max_participants, data.team_count);
+      updateData.max_team_size = distribution.max;
+    }
+  }
+
   const { error } = await supabaseAdmin
     .from("tournaments")
-    .update(data)
+    .update(updateData)
     .eq("id", id)
     .eq("owner_id", session.user.id);
 
@@ -692,16 +754,26 @@ export async function addParticipantsToTeam(
   return { ok: true };
 }
 
-// Randomly split all unassigned participants into teams of a given size
+// Randomly split all unassigned participants into teams
+// Either by fixed teamSize OR by teamCount (distribution calculated automatically)
 export async function randomAssignTeams(
   tournamentId: string,
-  teamSize: number
+  opts: { teamSize?: number; teamCount?: number }
 ): Promise<{ ok: true } | { error: string }> {
   const session = await getSession();
   if (!session) return { error: "Not authenticated" };
 
-  if (!Number.isInteger(teamSize) || teamSize < 1)
-    return { error: "Team size must be a positive integer" };
+  const { teamSize, teamCount } = opts;
+
+  if (teamCount !== undefined) {
+    if (!Number.isInteger(teamCount) || teamCount < 2)
+      return { error: "Team count must be at least 2" };
+  } else if (teamSize !== undefined) {
+    if (!Number.isInteger(teamSize) || teamSize < 1)
+      return { error: "Team size must be a positive integer" };
+  } else {
+    return { error: "Either teamSize or teamCount is required" };
+  }
 
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
@@ -731,14 +803,38 @@ export async function randomAssignTeams(
     userNameMap = new Map((users ?? []).map((u) => [u.id, u.name || u.email]));
   }
 
+  // Build chunks: either fixed-size or distribution-based
   const chunks: typeof shuffled[] = [];
-  for (let i = 0; i < shuffled.length; i += teamSize) {
-    chunks.push(shuffled.slice(i, i + teamSize));
-  }
 
   const { data: existingTeamRows } = await supabaseAdmin
-    .from("teams").select("name").eq("tournament_id", tournamentId);
-  const existingNames = new Set((existingTeamRows ?? []).map((t) => t.name));
+    .from("teams").select("id, name").eq("tournament_id", tournamentId);
+  const existingTeams = existingTeamRows ?? [];
+  const existingNames = new Set(existingTeams.map((t) => t.name));
+
+  if (teamCount !== undefined) {
+    // Only create new teams for the remaining slots
+    const newTeamCount = Math.max(0, teamCount - existingTeams.length);
+    if (newTeamCount === 0) {
+      return { error: "All teams already exist" };
+    }
+    if (newTeamCount > shuffled.length) {
+      return { error: "Not enough unassigned participants to fill remaining teams" };
+    }
+    // Calculate equal distribution across new teams only
+    const baseSize = Math.floor(shuffled.length / newTeamCount);
+    const remainder = shuffled.length % newTeamCount;
+    let idx = 0;
+    for (let t = 0; t < newTeamCount; t++) {
+      const size = t < remainder ? baseSize + 1 : baseSize;
+      chunks.push(shuffled.slice(idx, idx + size));
+      idx += size;
+    }
+  } else {
+    // Fixed team size
+    for (let i = 0; i < shuffled.length; i += teamSize!) {
+      chunks.push(shuffled.slice(i, i + teamSize!));
+    }
+  }
 
   function nextTeamName(): string {
     let n = 1;
@@ -814,6 +910,17 @@ export async function removeFromTeam(
   });
 
   if (insertError) return { error: insertError.message };
+
+  // Delete team if empty
+  const { count } = await supabaseAdmin
+    .from("team_members")
+    .select("id", { count: "exact", head: true })
+    .eq("team_id", member.team_id);
+
+  if (count === 0) {
+    await supabaseAdmin.from("teams").delete().eq("id", member.team_id);
+    await supabaseAdmin.from("participants").delete().eq("team_id", member.team_id);
+  }
 
   revalidatePath(`/tournaments/${tournamentId}`);
   return { ok: true };

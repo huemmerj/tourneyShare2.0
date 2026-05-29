@@ -236,6 +236,7 @@ export default async function TournamentPage({
               tournamentId={id}
               unassigned={unassignedData}
               assignedTeams={assignedTeamsData}
+              teamCount={tournament.team_count}
             />
           );
         })()}

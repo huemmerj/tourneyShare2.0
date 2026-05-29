@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tourney Share
 
-## Getting Started
+A tournament management app built with Next.js, Supabase, and Better Auth.
 
-First, run the development server:
+## Features
+
+- Create and manage tournaments (single elimination, double elimination, round robin, swiss, group+knockout)
+- Team and solo participant modes
+- Self-select or admin-assigned teams
+- Random team distribution with equal sizing
+- Invite links and QR codes
+- Score reporting with dispute flow
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Database:** Supabase (PostgreSQL)
+- **Auth:** Better Auth (email/password)
+- **Styling:** Tailwind CSS + Shadcn + Radix UI
+
+## Setup
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd tourneyShare2.0
+npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Fill in the required values:
+
+| Variable                        | Where to find it                         |
+| ------------------------------- | ---------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase Dashboard                       |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard                       |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase Dashboard                       |
+| `DATABASE_URL`                  | Supabase Dashboard                       |
+| `BETTER_AUTH_SECRET`            | Generate with: `openssl rand -base64 32` |
+
+### 3. Run migrations
+
+**Better Auth tables:**
+
+```bash
+npx @better-auth/cli migrate
+```
+
+**App tables (Supabase):**
+
+Open the Supabase SQL Editor and run each file in `supabase/migrations/` in order.
+
+### 4. Start dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command         | Description              |
+| --------------- | ------------------------ |
+| `npm run dev`   | Start development server |
+| `npm run build` | Production build         |
+| `npm run start` | Start production server  |
+| `npm run lint`  | Run ESLint               |
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+├── app/
+│   ├── (app)/              # Authenticated routes
+│   │   ├── dashboard/      # Dashboard
+│   │   ├── tournaments/    # Tournament CRUD + management
+│   │   └── profile/        # User profile
+│   ├── join/[code]/        # Public invite link
+│   ├── t/[code]/           # Spectator view
+│   └── api/auth/           # Better Auth endpoint
+├── components/             # Shared UI components
+├── lib/
+│   ├── auth.ts             # Better Auth config
+│   ├── supabase/           # Supabase clients (browser + server)
+│   ├── bracket.ts          # Bracket generation algorithms
+│   └── types.ts            # TypeScript types
+├── messages/               # i18n translations (en, de)
+└── supabase/migrations/    # SQL schema migrations
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project uses two database layers:
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Better Auth** – manages `user`, `session`, `account` tables (auto-created on first run)
+- **Supabase SQL migrations** – app tables (`tournaments`, `teams`, `participants`, `matches`, etc.)
