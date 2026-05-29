@@ -158,7 +158,9 @@
     "team_size_label": "Spieler pro Team",
     "select_to_assign": "Teilnehmer zum Zuweisen auswählen",
     "assigned_teams": "Zugewiesene Teams",
-    "admin_registered_note": "Du bist angemeldet. Der Admin wird dich einem Team zuweisen."
+    "admin_registered_note": "Du bist angemeldet. Der Admin wird dich einem Team zuweisen.",
+    "add_to_existing_team": "Zu bestehendem Team hinzufügen",
+    "add_to_team_btn": "Ausgewählte hinzufügen"
   },
   "participants": {
     "title": "Teilnehmer",
@@ -170,7 +172,8 @@
     "unclaimed": "Nicht beansprucht",
     "confirm": "Bestätigen",
     "remove": "Entfernen",
-    "seed": "Setzung"
+    "seed": "Setzung",
+    "no_team": "Kein Team"
   },
   "matches": {
     "losers": "Verlierer",

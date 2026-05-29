@@ -486,6 +486,69 @@ export async function assignUsersToTeam(
   return { ok: true };
 }
 
+// Admin adds selected unassigned participants to an existing team
+export async function addParticipantsToTeam(
+  tournamentId: string,
+  teamId: string,
+  participantIds: string[]
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+  if (participantIds.length === 0) return { error: "Select at least one participant" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, max_team_size")
+    .eq("id", tournamentId)
+    .single();
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+
+  // Verify team belongs to this tournament
+  const { data: team } = await supabaseAdmin
+    .from("teams").select("id, name").eq("id", teamId).eq("tournament_id", tournamentId).maybeSingle();
+  if (!team) return { error: "Team not found" };
+
+  if (tournament.max_team_size) {
+    const { count: current } = await supabaseAdmin
+      .from("team_members").select("id", { count: "exact", head: true }).eq("team_id", teamId);
+    if ((current ?? 0) + participantIds.length > tournament.max_team_size)
+      return { error: `Team cannot exceed ${tournament.max_team_size} members` };
+  }
+
+  const { data: participants } = await supabaseAdmin
+    .from("participants")
+    .select("id, user_id, guest_token_id, display_name")
+    .in("id", participantIds)
+    .eq("tournament_id", tournamentId)
+    .is("team_id", null);
+  if (!participants || participants.length === 0) return { error: "No valid participants found" };
+
+  const userIds = participants.filter((p) => p.user_id).map((p) => p.user_id as string);
+  let userNameMap: Map<string, string> = new Map();
+  if (userIds.length > 0) {
+    const { data: users } = await supabaseAdmin.from("user").select("id, name, email").in("id", userIds);
+    userNameMap = new Map((users ?? []).map((u) => [u.id, u.name || u.email]));
+  }
+
+  const memberRows = participants.map((p) => ({
+    team_id: teamId,
+    user_id: p.user_id ?? null,
+    guest_token_id: p.guest_token_id ?? null,
+    display_name: p.user_id ? (userNameMap.get(p.user_id) ?? "Unknown") : p.display_name ?? "Guest",
+  }));
+
+  const { error: memberError } = await supabaseAdmin.from("team_members").insert(memberRows);
+  if (memberError) return { error: memberError.message };
+
+  // Delete the individual participant rows (team already has a participant row)
+  const { error: deleteError } = await supabaseAdmin.from("participants").delete().in("id", participantIds);
+  if (deleteError) return { error: deleteError.message };
+
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}
+
 // Randomly split all unassigned participants into teams of a given size
 export async function randomAssignTeams(
   tournamentId: string,
@@ -530,12 +593,20 @@ export async function randomAssignTeams(
     chunks.push(shuffled.slice(i, i + teamSize));
   }
 
-  const { count: existingTeams } = await supabaseAdmin
-    .from("teams").select("id", { count: "exact", head: true }).eq("tournament_id", tournamentId);
-  let offset = (existingTeams ?? 0) + 1;
+  const { data: existingTeamRows } = await supabaseAdmin
+    .from("teams").select("name").eq("tournament_id", tournamentId);
+  const existingNames = new Set((existingTeamRows ?? []).map((t) => t.name));
+
+  function nextTeamName(): string {
+    let n = 1;
+    while (existingNames.has(`Team ${n}`)) n++;
+    const name = `Team ${n}`;
+    existingNames.add(name);
+    return name;
+  }
 
   for (const chunk of chunks) {
-    const teamName = `Team ${offset++}`;
+    const teamName = nextTeamName();
     const { data: team, error: teamError } = await supabaseAdmin
       .from("teams")
       .insert({ tournament_id: tournamentId, name: teamName, created_by: session.user.id })

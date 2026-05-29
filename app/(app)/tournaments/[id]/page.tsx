@@ -195,6 +195,7 @@ export default async function TournamentPage({
         tournamentId={id}
         participants={participants}
         canEdit={isOwner && tournament.status !== "active" && tournament.status !== "completed"}
+        isTeamTournament={tournament.participant_type === "team"}
       />
 
       {/* Admin team assignment (admin_assigned mode) */}

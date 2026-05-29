@@ -28,10 +28,12 @@ export function ParticipantManager({
   tournamentId,
   participants,
   canEdit,
+  isTeamTournament = false,
 }: {
   tournamentId: string;
   participants: Participant[];
   canEdit: boolean;
+  isTeamTournament?: boolean;
 }) {
   const router = useRouter();
   const t = useT();
@@ -111,8 +113,20 @@ export function ParticipantManager({
 
       {participants.length > 0 ? (
         <ul className="divide-y divide-border">
-          {participants.map((p) => (
-            <li key={p.id} className="flex min-w-0 flex-col gap-1 px-4 py-2.5 text-sm">
+          {participants.map((p) => {
+            const isTeam = !!p.team;
+            const isUnassignedPlayer = isTeamTournament && !isTeam && !isUnclaimed(p);
+            return (
+            <li
+              key={p.id}
+              className={`flex min-w-0 flex-col gap-1 border-l-2 px-4 py-2.5 text-sm ${
+                isTeam
+                  ? "border-l-primary/60"
+                  : isUnassignedPlayer
+                    ? "border-l-amber-500/60"
+                    : "border-l-transparent"
+              }`}
+            >
               <div className="flex min-w-0 items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium text-foreground">
                   {getDisplayName(p)}
@@ -122,6 +136,11 @@ export function ParticipantManager({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
+                {isUnassignedPlayer && (
+                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                    {t("participants.no_team")}
+                  </span>
+                )}
                 {isUnclaimed(p) && (
                   <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
                     {t("participants.unclaimed")}
@@ -174,7 +193,8 @@ export function ParticipantManager({
                 </ul>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : (
         <p className="px-4 py-8 text-center text-sm text-muted-foreground">
