@@ -166,7 +166,8 @@
     "assigned_teams": "Zugewiesene Teams",
     "admin_registered_note": "Du bist angemeldet. Der Admin wird dich einem Team zuweisen.",
     "add_to_existing_team": "Zu bestehendem Team hinzufügen",
-    "add_to_team_btn": "Ausgewählte hinzufügen"
+    "add_to_team_btn": "Ausgewählte hinzufügen",
+    "remove_from_team": "Entfernen"
   },
   "participants": {
     "title": "Teilnehmer",

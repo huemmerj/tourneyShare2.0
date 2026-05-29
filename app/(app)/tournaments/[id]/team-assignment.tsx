@@ -4,10 +4,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/components/locale-provider";
-import { assignUsersToTeam, addParticipantsToTeam, randomAssignTeams } from "../actions";
+import { assignUsersToTeam, addParticipantsToTeam, randomAssignTeams, removeFromTeam } from "../actions";
 
 type UnassignedParticipant = { id: string; displayName: string };
-type AssignedTeam = { id: string; name: string; members: string[] };
+type TeamMember = { id: string; displayName: string };
+type AssignedTeam = { id: string; name: string; members: TeamMember[] };
 
 export function TeamAssignment({
   tournamentId,
@@ -56,6 +57,15 @@ export function TeamAssignment({
       setSelected(new Set());
       setTargetTeamId("");
       router.refresh();
+    });
+  }
+
+  function handleRemove(memberId: string) {
+    setError("");
+    startTransition(async () => {
+      const result = await removeFromTeam(tournamentId, memberId);
+      if ("error" in result) setError(result.error);
+      else router.refresh();
     });
   }
 
@@ -193,7 +203,20 @@ export function TeamAssignment({
                 <li key={team.id} className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-sm font-medium text-foreground">{team.name}</p>
                   {team.members.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{team.members.join(", ")}</p>
+                    <ul className="mt-1 flex flex-col gap-0.5">
+                      {team.members.map((m) => (
+                        <li key={m.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{m.displayName}</span>
+                          <button
+                            onClick={() => handleRemove(m.id)}
+                            disabled={isPending}
+                            className="ml-auto text-destructive hover:underline disabled:opacity-50"
+                          >
+                            {t("tournament.remove_from_team")}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </li>
               ))}

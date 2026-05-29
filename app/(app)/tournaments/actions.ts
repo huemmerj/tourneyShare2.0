@@ -170,6 +170,18 @@ export async function generateGroupKnockoutPhase(
   const advancePerGroup = tournament.advance_per_group;
   if (!groupCount || !advancePerGroup) return { error: "Group configuration not set" };
 
+  // Check that no knockout phase exists yet
+  const { data: existingKo } = await supabaseAdmin
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_id", id)
+    .not("round_label", "is", null)
+    .not("round_label", "ilike", "Group%")
+    .limit(1);
+
+  if (existingKo && existingKo.length > 0)
+    return { error: "Knockout phase already generated" };
+
   // Load all group stage matches
   const { data: groupMatches } = await supabaseAdmin
     .from("matches")
@@ -564,8 +576,8 @@ export async function assignUsersToTeam(
 
   if (!tournament) return { error: "Tournament not found" };
   if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
-  if (tournament.status === "active" || tournament.status === "completed")
-    return { error: "Cannot assign teams after tournament has started" };
+  if (tournament.status === "completed")
+    return { error: "Cannot assign teams after tournament has ended" };
 
   if (tournament.max_team_size && participantIds.length > tournament.max_team_size)
     return { error: `Team cannot exceed ${tournament.max_team_size} members` };
@@ -757,6 +769,51 @@ export async function randomAssignTeams(
     });
     await supabaseAdmin.from("participants").delete().in("id", chunk.map((p) => p.id));
   }
+
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}
+
+// Admin removes a team member from their team (puts them back as unassigned)
+export async function removeFromTeam(
+  tournamentId: string,
+  teamMemberId: string,
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, status")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+  if (tournament.status === "completed") return { error: "Tournament already completed" };
+
+  const { data: member } = await supabaseAdmin
+    .from("team_members")
+    .select("id, team_id, user_id, guest_token_id, display_name")
+    .eq("id", teamMemberId)
+    .single();
+
+  if (!member) return { error: "Team member not found" };
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("team_members").delete().eq("id", teamMemberId);
+
+  if (deleteError) return { error: deleteError.message };
+
+  const { error: insertError } = await supabaseAdmin.from("participants").insert({
+    tournament_id: tournamentId,
+    user_id: member.user_id ?? null,
+    guest_token_id: member.guest_token_id ?? null,
+    display_name: member.display_name ?? null,
+    status: "confirmed",
+  });
+
+  if (insertError) return { error: insertError.message };
 
   revalidatePath(`/tournaments/${tournamentId}`);
   return { ok: true };

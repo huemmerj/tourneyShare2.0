@@ -213,7 +213,7 @@ export default async function TournamentPage({
       {/* Admin team assignment (admin_assigned mode) */}
       {isOwner &&
         tournament.participant_type === "team" &&
-        tournament.status === "registration" && (() => {
+        (tournament.status === "registration" || tournament.status === "active") && (() => {
           const unassignedData = participants
             .filter((p) => !p.team_id)
             .map((p) => ({
@@ -224,13 +224,13 @@ export default async function TournamentPage({
                   ? p.user.name || p.user.email
                   : p.display_name ?? "Unknown",
             }));
-          const assignedTeamsData = participants
-            .filter((p) => p.team)
-            .map((p) => ({
-              id: p.team!.id,
-              name: p.team!.name,
-              members: p.teamMembers.map((m) => m.display_name),
-            }));
+      const assignedTeamsData = participants
+        .filter((p) => p.team)
+        .map((p) => ({
+          id: p.team!.id,
+          name: p.team!.name,
+          members: p.teamMembers.map((m) => ({ id: m.id, displayName: m.display_name })),
+        }));
           return (
             <TeamAssignment
               tournamentId={id}

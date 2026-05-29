@@ -166,7 +166,8 @@
     "assigned_teams": "Assigned teams",
     "admin_registered_note": "You are registered. The admin will assign you to a team.",
     "add_to_existing_team": "Add to existing team",
-    "add_to_team_btn": "Add selected"
+    "add_to_team_btn": "Add selected",
+    "remove_from_team": "Remove"
   },
   "participants": {
     "title": "Participants",
