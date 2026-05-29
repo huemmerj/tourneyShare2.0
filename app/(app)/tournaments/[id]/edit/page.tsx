@@ -154,7 +154,7 @@ export default function EditTournamentPage({
 
         <section className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("tournament.schedule")}</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("tournament.start_date")}>
               <input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} />
             </Field>

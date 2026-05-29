@@ -47,14 +47,14 @@ export default async function Home() {
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4">
         {/* Hero */}
-        <section className="flex flex-col items-center py-20 text-center">
-          <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+        <section className="flex flex-col items-center py-12 text-center sm:py-20">
+          <h1 className="max-w-xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
             {dict.home.headline}
           </h1>
-          <p className="mt-4 max-w-md text-lg text-muted-foreground">
+          <p className="mt-4 max-w-md text-base text-muted-foreground sm:text-lg">
             {dict.home.subline}
           </p>
-          <div className="mt-8 flex gap-3">
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button size="lg" asChild>
               <Link href="/sign-up">{dict.home.create_cta}</Link>
             </Button>

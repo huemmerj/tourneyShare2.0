@@ -47,7 +47,7 @@ export function TournamentActions({ tournament }: { tournament: Tournament }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {nextStatus && (
         <Button size="sm" onClick={handleStatusChange} disabled={loading}>
           {nextLabel}

@@ -35,14 +35,14 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
             {dict.dashboard.title}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{countLabel}</p>
         </div>
-        <Button asChild>
+        <Button asChild size="sm" className="shrink-0">
           <Link href="/tournaments/new">{dict.dashboard.new}</Link>
         </Button>
       </div>

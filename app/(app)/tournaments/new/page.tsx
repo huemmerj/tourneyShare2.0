@@ -170,7 +170,7 @@ export default function NewTournamentPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {t("tournament.schedule")}
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("tournament.start_date")}>
               <input
                 type="datetime-local"

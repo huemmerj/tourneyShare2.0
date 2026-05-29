@@ -112,9 +112,9 @@ export default async function TournamentPage({
   return (
     <div className="max-w-3xl">
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-2">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[tournament.status]}`}
             >
@@ -128,7 +128,7 @@ export default async function TournamentPage({
               {tournament.participant_type}
             </span>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
             {tournament.name}
           </h1>
           {tournament.description && (
@@ -139,7 +139,7 @@ export default async function TournamentPage({
         </div>
 
         {isOwner && (
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
               <Link href={`/tournaments/${id}/edit`}>{dict.common.edit}</Link>
             </Button>
@@ -154,7 +154,7 @@ export default async function TournamentPage({
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Details */}
-        <div className="rounded-xl border border-border bg-card/50 p-4">
+        <div className="rounded-xl border border-border bg-card/50 p-3 sm:p-4">
           <dl className="flex flex-col gap-2 text-sm">
             {tournament.sport_type && (
               <Row label={dict.tournament.sport_game} value={tournament.sport_type} />
@@ -173,7 +173,7 @@ export default async function TournamentPage({
         </div>
 
         {/* Invite link */}
-        <div className="rounded-xl border border-border bg-card/50 p-4">
+        <div className="rounded-xl border border-border bg-card/50 p-3 sm:p-4">
           <p className="mb-1.5 text-xs font-medium text-muted-foreground">
             {dict.tournament.invite_link}
           </p>
