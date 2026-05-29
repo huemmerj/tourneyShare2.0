@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { JoinButton } from "./join-button";
 import { GuestJoinForm } from "./guest-join-form";
 import { ClaimSlotForm } from "./claim-slot-form";
+import { TeamJoinSection } from "./team-join-section";
 import type { Tournament } from "@/lib/types";
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -33,27 +34,66 @@ export default async function JoinPage({
 
   const session = await auth.api.getSession({ headers: await headers() });
 
-  // Check if already joined
-  let alreadyJoined = false;
-  if (session) {
-    const { data } = await supabaseAdmin
-      .from("participants")
+  // Resolve guest token (used for both solo and team already-joined checks)
+  const cookieStore = await cookies();
+  const guestTokenValue = cookieStore.get(`gt_${tournament.id}`)?.value;
+  let guestTokenId: string | null = null;
+  if (!session && guestTokenValue) {
+    const { data: gt } = await supabaseAdmin
+      .from("guest_tokens")
       .select("id")
+      .eq("token", guestTokenValue)
       .eq("tournament_id", tournament.id)
-      .eq("user_id", session.user.id)
       .maybeSingle();
-    alreadyJoined = !!data;
-  } else {
-    const cookieStore = await cookies();
-    const guestToken = cookieStore.get(`gt_${tournament.id}`)?.value;
-    if (guestToken) {
-      const { data } = await supabaseAdmin
-        .from("guest_tokens")
+    guestTokenId = gt?.id ?? null;
+  }
+
+  // Check if already joined (solo: participant row; team: team_members row)
+  let alreadyJoined = false;
+  if (tournament.participant_type === "team") {
+    if (session) {
+      // User is in a team for this tournament if they appear in team_members for any team here
+      const { data: teams } = await supabaseAdmin
+        .from("teams")
         .select("id")
-        .eq("token", guestToken)
+        .eq("tournament_id", tournament.id);
+      const teamIds = teams?.map((t) => t.id) ?? [];
+      if (teamIds.length > 0) {
+        const { data } = await supabaseAdmin
+          .from("team_members")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .in("team_id", teamIds)
+          .maybeSingle();
+        alreadyJoined = !!data;
+      }
+    } else if (guestTokenId) {
+      const { data: teams } = await supabaseAdmin
+        .from("teams")
+        .select("id")
+        .eq("tournament_id", tournament.id);
+      const teamIds = teams?.map((t) => t.id) ?? [];
+      if (teamIds.length > 0) {
+        const { data } = await supabaseAdmin
+          .from("team_members")
+          .select("id")
+          .eq("guest_token_id", guestTokenId)
+          .in("team_id", teamIds)
+          .maybeSingle();
+        alreadyJoined = !!data;
+      }
+    }
+  } else {
+    if (session) {
+      const { data } = await supabaseAdmin
+        .from("participants")
+        .select("id")
         .eq("tournament_id", tournament.id)
+        .eq("user_id", session.user.id)
         .maybeSingle();
       alreadyJoined = !!data;
+    } else if (guestTokenId) {
+      alreadyJoined = true; // guest token exists for this tournament = already joined
     }
   }
 
@@ -66,6 +106,34 @@ export default async function JoinPage({
           .eq("tournament_id", tournament.id)
           .then((r) => (r.count ?? 0) >= tournament.max_participants!))
       : false;
+
+  // Fetch teams with member counts (for team tournaments)
+  let teamsWithCounts: { id: string; name: string; memberCount: number; maxSize: number | null }[] = [];
+  if (tournament.participant_type === "team") {
+    const { data: rawTeams } = await supabaseAdmin
+      .from("teams")
+      .select("id, name")
+      .eq("tournament_id", tournament.id)
+      .order("created_at");
+    if (rawTeams && rawTeams.length > 0) {
+      const counts = await Promise.all(
+        rawTeams.map((t) =>
+          supabaseAdmin
+            .from("team_members")
+            .select("id", { count: "exact", head: true })
+            .eq("team_id", t.id)
+            .then((r) => ({ id: t.id, count: r.count ?? 0 }))
+        )
+      );
+      const countMap = new Map(counts.map((c) => [c.id, c.count]));
+      teamsWithCounts = rawTeams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        memberCount: countMap.get(t.id) ?? 0,
+        maxSize: tournament.max_team_size,
+      }));
+    }
+  }
 
   // Fetch unclaimed preset slots (no user_id, no guest_token_id, display_name set)
   const { data: rawPresets } = await supabaseAdmin
@@ -109,9 +177,14 @@ export default async function JoinPage({
           <div className="my-4 border-t border-border" />
 
           {alreadyJoined ? (
-            <p className="text-center text-sm font-medium text-success">
-              You&apos;re registered for this tournament!
-            </p>
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-center text-sm font-medium text-success">
+                You&apos;re registered for this tournament!
+              </p>
+              <Button asChild className="w-full">
+                <Link href={`/t/${code}`}>View bracket</Link>
+              </Button>
+            </div>
           ) : !registrationOpen ? (
             <p className="text-center text-sm text-muted-foreground">
               {tournament.status === "draft"
@@ -123,9 +196,14 @@ export default async function JoinPage({
               This tournament is full.
             </p>
           ) : tournament.participant_type === "team" ? (
-            <p className="text-center text-sm text-muted-foreground">
-              Team registration — sign in and visit the tournament page to create or join a team.
-            </p>
+            <TeamJoinSection
+              tournamentId={tournament.id}
+              teams={teamsWithCounts}
+              isAuthenticated={!!session}
+              allowAnonymous={tournament.allow_anonymous}
+              maxTeamSize={tournament.max_team_size}
+              presetNames={presetSlots.map((s) => s.display_name)}
+            />
           ) : presetSlots.length > 0 ? (
             <div className="flex flex-col gap-4">
               <ClaimSlotForm

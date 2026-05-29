@@ -19,6 +19,7 @@ type Props = {
   nameB: string;
   participantAId: string;
   participantBId: string;
+  scoringRule?: "higher_wins" | "lower_wins";
 };
 
 export function ReportScoreDialog({
@@ -27,6 +28,7 @@ export function ReportScoreDialog({
   nameB,
   participantAId,
   participantBId,
+  scoringRule = "higher_wins",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [scoreA, setScoreA] = useState("");
@@ -34,6 +36,27 @@ export function ReportScoreDialog({
   const [winner, setWinner] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  function deriveWinner(a: string, b: string): string {
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    if (isNaN(numA) || isNaN(numB) || numA === numB) return "";
+    if (scoringRule === "higher_wins") {
+      return numA > numB ? participantAId : participantBId;
+    } else {
+      return numA < numB ? participantAId : participantBId;
+    }
+  }
+
+  function handleScoreAChange(val: string) {
+    setScoreA(val);
+    setWinner(deriveWinner(val, scoreB));
+  }
+
+  function handleScoreBChange(val: string) {
+    setScoreB(val);
+    setWinner(deriveWinner(scoreA, val));
+  }
 
   async function handle(e: React.FormEvent) {
     e.preventDefault();
@@ -77,7 +100,7 @@ export function ReportScoreDialog({
                 type="number"
                 min={0}
                 value={scoreA}
-                onChange={(e) => setScoreA(e.target.value)}
+                onChange={(e) => handleScoreAChange(e.target.value)}
                 placeholder="0"
               />
             </div>
@@ -88,7 +111,7 @@ export function ReportScoreDialog({
                 type="number"
                 min={0}
                 value={scoreB}
-                onChange={(e) => setScoreB(e.target.value)}
+                onChange={(e) => handleScoreBChange(e.target.value)}
                 placeholder="0"
               />
             </div>
@@ -116,6 +139,11 @@ export function ReportScoreDialog({
               />
               {nameB}
             </label>
+            {winner && (
+              <p className="text-xs text-muted-foreground">
+                Auto-selected based on {scoringRule === "higher_wins" ? "higher" : "lower"} score wins
+              </p>
+            )}
           </fieldset>
 
           {error && <p className="text-xs text-destructive">{error}</p>}

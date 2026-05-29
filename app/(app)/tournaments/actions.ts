@@ -21,6 +21,7 @@ type TournamentInput = {
   is_public: boolean;
   allow_anonymous: boolean;
   dispute_flow_enabled: boolean;
+  scoring_rule: "higher_wins" | "lower_wins";
 };
 
 async function getSession() {

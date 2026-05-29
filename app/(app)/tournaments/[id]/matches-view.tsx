@@ -18,6 +18,8 @@ type Match = {
 type ParticipantWithName = Participant & {
   user?: { name: string; email: string } | null;
   guest?: { display_name: string } | null;
+  team?: { name: string } | null;
+  display_name?: string | null;
 };
 
 function getDisplayName(
@@ -27,9 +29,10 @@ function getDisplayName(
   if (!participantId) return "TBD";
   const p = participantsMap.get(participantId);
   if (!p) return "Unknown";
+  if (p.team) return p.team.name;
   if (p.guest) return p.guest.display_name;
   if (p.user) return p.user.name || p.user.email;
-  return `Participant`;
+  return p.display_name ?? "Participant";
 }
 
 const BRACKET_ORDER = { winners: 0, losers: 1, grand_final: 2 } as const;
@@ -38,26 +41,29 @@ export function MatchesView({
   matches,
   participants,
   isOwner = false,
+  currentParticipantId = null,
+  showScores = true,
+  scoringRule = "higher_wins",
 }: {
   matches: Match[];
   participants: ParticipantWithName[];
   isOwner?: boolean;
+  currentParticipantId?: string | null;
+  showScores?: boolean;
+  scoringRule?: "higher_wins" | "lower_wins";
 }) {
   const pMap = new Map(participants.map((p) => [p.id, p]));
 
-  // Group by bracket → round
   type Group = { bracket: string; round: number; label: string; matches: Match[] };
   const groups: Group[] = [];
 
   const sorted = [...matches].sort((a, b) => {
-    const bOrder =
-      BRACKET_ORDER[a.bracket] - BRACKET_ORDER[b.bracket];
+    const bOrder = BRACKET_ORDER[a.bracket] - BRACKET_ORDER[b.bracket];
     if (bOrder !== 0) return bOrder;
     return a.round_number - b.round_number || a.match_number - b.match_number;
   });
 
   for (const m of sorted) {
-    const key = `${m.bracket}__${m.round_number}`;
     let group = groups.find(
       (g) => g.bracket === m.bracket && g.round === m.round_number
     );
@@ -96,6 +102,14 @@ export function MatchesView({
               const isBye = m.status === "bye";
               const isCompleted = m.status === "completed";
 
+              const isMyMatch =
+                currentParticipantId !== null &&
+                (m.participant_a_id === currentParticipantId ||
+                  m.participant_b_id === currentParticipantId);
+
+              const isCurrentA = currentParticipantId === m.participant_a_id;
+              const isCurrentB = currentParticipantId === m.participant_b_id;
+
               const canReport =
                 isOwner &&
                 !isBye &&
@@ -106,19 +120,23 @@ export function MatchesView({
               return (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between gap-4 px-4 py-2.5"
+                  className={`flex items-center justify-between gap-4 px-4 py-2.5 ${
+                    isMyMatch ? "bg-primary/5" : ""
+                  }`}
                 >
                   <div className="flex flex-1 flex-col gap-0.5">
                     <MatchSide
                       name={nameA}
-                      score={m.score_a}
+                      score={showScores ? m.score_a : null}
                       isWinner={isCompleted && m.winner_id === m.participant_a_id}
+                      isCurrentUser={isCurrentA}
                     />
                     {!isBye && (
                       <MatchSide
                         name={nameB}
-                        score={m.score_b}
+                        score={showScores ? m.score_b : null}
                         isWinner={isCompleted && m.winner_id === m.participant_b_id}
+                        isCurrentUser={isCurrentB}
                       />
                     )}
                   </div>
@@ -130,6 +148,7 @@ export function MatchesView({
                         nameB={nameB}
                         participantAId={m.participant_a_id!}
                         participantBId={m.participant_b_id!}
+                        scoringRule={scoringRule}
                       />
                     )}
                     <span
@@ -158,24 +177,33 @@ function MatchSide({
   name,
   score,
   isWinner,
+  isCurrentUser,
 }: {
   name: string;
   score: number | null;
   isWinner: boolean;
+  isCurrentUser: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span
-        className={`text-sm ${
-          name === "TBD"
-            ? "text-muted-foreground"
-            : isWinner
-              ? "font-semibold text-foreground"
-              : "text-foreground"
-        }`}
-      >
-        {name}
-      </span>
+      <div className="flex items-center gap-1.5">
+        <span
+          className={`text-sm ${
+            name === "TBD"
+              ? "text-muted-foreground"
+              : isWinner
+                ? "font-semibold text-foreground"
+                : "text-foreground"
+          }`}
+        >
+          {name}
+        </span>
+        {isCurrentUser && (
+          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+            You
+          </span>
+        )}
+      </div>
       {score !== null && (
         <span
           className={`text-sm tabular-nums ${

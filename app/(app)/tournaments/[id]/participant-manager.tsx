@@ -10,11 +10,15 @@ import {
   confirmParticipant,
 } from "../actions";
 
+type TeamMember = { id: string; team_id: string; display_name: string };
+
 type Participant = {
   id: string;
   display_name: string | null;
   user: { id: string; name: string; email: string } | null;
   guest: { id: string; display_name: string } | null;
+  team: { id: string; name: string } | null;
+  teamMembers: TeamMember[];
   status: string;
   seed: number | null;
 };
@@ -34,13 +38,14 @@ export function ParticipantManager({
   const [isPending, startTransition] = useTransition();
 
   function getDisplayName(p: Participant) {
+    if (p.team) return p.team.name;
     if (p.guest) return p.guest.display_name;
     if (p.user) return p.user.name || p.user.email;
     return p.display_name ?? "Unknown";
   }
 
   function isUnclaimed(p: Participant) {
-    return !p.user && !p.guest;
+    return !p.user && !p.guest && !p.team;
   }
 
   function handleAdd() {
@@ -106,58 +111,69 @@ export function ParticipantManager({
       {participants.length > 0 ? (
         <ul className="divide-y divide-border">
           {participants.map((p) => (
-            <li
-              key={p.id}
-              className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm"
-            >
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-foreground">
-                  {getDisplayName(p)}
-                </span>
-                {p.seed !== null && (
-                  <span className="text-xs text-muted-foreground">
-                    Seed {p.seed}
+            <li key={p.id} className="px-4 py-2.5 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium text-foreground">
+                    {getDisplayName(p)}
                   </span>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {isUnclaimed(p) && (
-                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                    Unclaimed
+                  {p.seed !== null && (
+                    <span className="text-xs text-muted-foreground">Seed {p.seed}</span>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {isUnclaimed(p) && (
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                      Unclaimed
+                    </span>
+                  )}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                      p.status === "confirmed"
+                        ? "bg-success/10 text-success"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {p.status}
                   </span>
-                )}
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                    p.status === "confirmed"
-                      ? "bg-success/10 text-success"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {p.status}
-                </span>
-                {canEdit && p.status === "pending" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleConfirm(p.id)}
-                    disabled={isPending}
-                    className="h-6 px-2 text-xs"
-                  >
-                    Confirm
-                  </Button>
-                )}
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemove(p.id)}
-                    disabled={isPending}
-                    className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    Remove
-                  </Button>
-                )}
+                  {canEdit && p.status === "pending" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleConfirm(p.id)}
+                      disabled={isPending}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Confirm
+                    </Button>
+                  )}
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemove(p.id)}
+                      disabled={isPending}
+                      className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </div>
+
+              {/* Team members list */}
+              {p.team && p.teamMembers.length > 0 && (
+                <ul className="mt-1.5 flex flex-wrap gap-1.5 pl-1">
+                  {p.teamMembers.map((m) => (
+                    <li
+                      key={m.id}
+                      className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                    >
+                      {m.display_name}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

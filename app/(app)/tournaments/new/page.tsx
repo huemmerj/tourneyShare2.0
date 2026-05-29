@@ -23,6 +23,7 @@ export default function NewTournamentPage() {
   const [isPublic, setIsPublic] = useState(false);
   const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [disputeFlow, setDisputeFlow] = useState(false);
+  const [scoringRule, setScoringRule] = useState<"higher_wins" | "lower_wins">("higher_wins");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +44,7 @@ export default function NewTournamentPage() {
       is_public: isPublic,
       allow_anonymous: allowAnonymous,
       dispute_flow_enabled: disputeFlow,
+      scoring_rule: scoringRule,
     });
 
     setLoading(false);
@@ -197,6 +199,16 @@ export default function NewTournamentPage() {
             label="Enable dispute flow"
             description="Participants must confirm scores before they are accepted"
           />
+          <Field label="Scoring rule">
+            <select
+              value={scoringRule}
+              onChange={(e) => setScoringRule(e.target.value as "higher_wins" | "lower_wins")}
+              className={inputCls}
+            >
+              <option value="higher_wins">Higher score wins</option>
+              <option value="lower_wins">Lower score wins</option>
+            </select>
+          </Field>
         </section>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

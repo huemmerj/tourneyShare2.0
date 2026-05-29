@@ -1,0 +1,331 @@
+"use server";
+
+import { headers, cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { createNotification } from "@/lib/notifications";
+
+async function loadTournament(tournamentId: string) {
+  const { data } = await supabaseAdmin
+    .from("tournaments")
+    .select("name, status, max_participants, max_team_size, owner_id, allow_anonymous")
+    .eq("id", tournamentId)
+    .single();
+  return data;
+}
+
+async function countTeams(tournamentId: string) {
+  const { count } = await supabaseAdmin
+    .from("participants")
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_id", tournamentId)
+    .not("team_id", "is", null);
+  return count ?? 0;
+}
+
+async function removeMatchingPresetSlot(tournamentId: string, displayName: string) {
+  const { data } = await supabaseAdmin
+    .from("participants")
+    .select("id")
+    .eq("tournament_id", tournamentId)
+    .is("user_id", null)
+    .is("guest_token_id", null)
+    .is("team_id", null)
+    .eq("display_name", displayName)
+    .limit(1)
+    .maybeSingle();
+  if (data) {
+    await supabaseAdmin.from("participants").delete().eq("id", data.id);
+  }
+}
+
+async function countTeamMembers(teamId: string) {
+  const { count } = await supabaseAdmin
+    .from("team_members")
+    .select("id", { count: "exact", head: true })
+    .eq("team_id", teamId);
+  return count ?? 0;
+}
+
+// ── Authenticated user ──────────────────────────────────────────────────────
+
+export async function createTeam(
+  tournamentId: string,
+  teamName: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated" };
+
+  const trimmed = teamName.trim();
+  if (!trimmed) return { error: "Team name is required" };
+
+  const tournament = await loadTournament(tournamentId);
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.status !== "registration") return { error: "Registration is not open" };
+
+  if (tournament.max_participants) {
+    const existing = await countTeams(tournamentId);
+    if (existing >= tournament.max_participants) return { error: "Tournament is full" };
+  }
+
+  // Check not already in a team for this tournament
+  const { data: existingMember } = await supabaseAdmin
+    .from("team_members")
+    .select("id")
+    .eq("user_id", session.user.id)
+    .in(
+      "team_id",
+      (
+        await supabaseAdmin
+          .from("teams")
+          .select("id")
+          .eq("tournament_id", tournamentId)
+      ).data?.map((t) => t.id) ?? []
+    )
+    .maybeSingle();
+
+  if (existingMember) return { error: "You are already in a team for this tournament" };
+
+  const { data: team, error: teamError } = await supabaseAdmin
+    .from("teams")
+    .insert({ tournament_id: tournamentId, name: trimmed, created_by: session.user.id })
+    .select("id")
+    .single();
+
+  if (teamError || !team) return { error: teamError?.message ?? "Failed to create team" };
+
+  const { error: memberError } = await supabaseAdmin.from("team_members").insert({
+    team_id: team.id,
+    user_id: session.user.id,
+    display_name: session.user.name || session.user.email,
+  });
+
+  if (memberError) return { error: memberError.message };
+
+  const { error: participantError } = await supabaseAdmin.from("participants").insert({
+    tournament_id: tournamentId,
+    team_id: team.id,
+    status: "confirmed",
+  });
+
+  if (participantError) return { error: participantError.message };
+
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `Team "${trimmed}" was created in your tournament "${tournament.name}".`,
+  });
+
+  const memberName = session.user.name || session.user.email;
+  await removeMatchingPresetSlot(tournamentId, memberName);
+
+  revalidatePath(`/join/${tournamentId}`);
+  return { ok: true };
+}
+
+export async function joinTeam(
+  tournamentId: string,
+  teamId: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated" };
+
+  const tournament = await loadTournament(tournamentId);
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.status !== "registration") return { error: "Registration is not open" };
+
+  // Verify the team belongs to this tournament
+  const { data: team } = await supabaseAdmin
+    .from("teams")
+    .select("id, name")
+    .eq("id", teamId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+
+  if (!team) return { error: "Team not found" };
+
+  if (tournament.max_team_size) {
+    const memberCount = await countTeamMembers(teamId);
+    if (memberCount >= tournament.max_team_size) return { error: "Team is full" };
+  }
+
+  // Check not already in a team for this tournament
+  const { data: existingMember } = await supabaseAdmin
+    .from("team_members")
+    .select("id")
+    .eq("user_id", session.user.id)
+    .in(
+      "team_id",
+      (
+        await supabaseAdmin
+          .from("teams")
+          .select("id")
+          .eq("tournament_id", tournamentId)
+      ).data?.map((t) => t.id) ?? []
+    )
+    .maybeSingle();
+
+  if (existingMember) return { error: "You are already in a team for this tournament" };
+
+  const { error } = await supabaseAdmin.from("team_members").insert({
+    team_id: teamId,
+    user_id: session.user.id,
+    display_name: session.user.name || session.user.email,
+  });
+
+  if (error) return { error: error.message };
+
+  const memberName = session.user.name || session.user.email;
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `${memberName} joined team "${team.name}" in your tournament "${tournament.name}".`,
+  });
+
+  await removeMatchingPresetSlot(tournamentId, memberName);
+
+  revalidatePath(`/join/${tournamentId}`);
+  return { ok: true };
+}
+
+// ── Guest ───────────────────────────────────────────────────────────────────
+
+export async function guestCreateTeam(
+  tournamentId: string,
+  teamName: string,
+  displayName: string
+): Promise<{ ok: true } | { error: string }> {
+  const trimmedTeam = teamName.trim();
+  const trimmedName = displayName.trim();
+  if (!trimmedTeam) return { error: "Team name is required" };
+  if (!trimmedName) return { error: "Your name is required" };
+
+  const tournament = await loadTournament(tournamentId);
+  if (!tournament) return { error: "Tournament not found" };
+  if (!tournament.allow_anonymous) return { error: "Anonymous join is not allowed" };
+  if (tournament.status !== "registration") return { error: "Registration is not open" };
+
+  if (tournament.max_participants) {
+    const existing = await countTeams(tournamentId);
+    if (existing >= tournament.max_participants) return { error: "Tournament is full" };
+  }
+
+  const { data: guestToken, error: tokenError } = await supabaseAdmin
+    .from("guest_tokens")
+    .insert({ tournament_id: tournamentId, display_name: trimmedName })
+    .select("id, token")
+    .single();
+
+  if (tokenError || !guestToken) return { error: tokenError?.message ?? "Failed to create guest token" };
+
+  const { data: team, error: teamError } = await supabaseAdmin
+    .from("teams")
+    .insert({ tournament_id: tournamentId, name: trimmedTeam })
+    .select("id")
+    .single();
+
+  if (teamError || !team) return { error: teamError?.message ?? "Failed to create team" };
+
+  const { error: memberError } = await supabaseAdmin.from("team_members").insert({
+    team_id: team.id,
+    guest_token_id: guestToken.id,
+    display_name: trimmedName,
+  });
+
+  if (memberError) return { error: memberError.message };
+
+  const { error: participantError } = await supabaseAdmin.from("participants").insert({
+    tournament_id: tournamentId,
+    team_id: team.id,
+    status: "confirmed",
+  });
+
+  if (participantError) return { error: participantError.message };
+
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `Team "${trimmedTeam}" was created in your tournament "${tournament.name}".`,
+  });
+
+  await removeMatchingPresetSlot(tournamentId, trimmedName);
+
+  const cookieStore = await cookies();
+  cookieStore.set(`gt_${tournamentId}`, guestToken.token, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+  });
+
+  revalidatePath(`/join/${tournamentId}`);
+  return { ok: true };
+}
+
+export async function guestJoinTeam(
+  tournamentId: string,
+  teamId: string,
+  displayName: string
+): Promise<{ ok: true } | { error: string }> {
+  const trimmed = displayName.trim();
+  if (!trimmed) return { error: "Your name is required" };
+
+  const tournament = await loadTournament(tournamentId);
+  if (!tournament) return { error: "Tournament not found" };
+  if (!tournament.allow_anonymous) return { error: "Anonymous join is not allowed" };
+  if (tournament.status !== "registration") return { error: "Registration is not open" };
+
+  const { data: team } = await supabaseAdmin
+    .from("teams")
+    .select("id, name")
+    .eq("id", teamId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+
+  if (!team) return { error: "Team not found" };
+
+  if (tournament.max_team_size) {
+    const memberCount = await countTeamMembers(teamId);
+    if (memberCount >= tournament.max_team_size) return { error: "Team is full" };
+  }
+
+  const { data: guestToken, error: tokenError } = await supabaseAdmin
+    .from("guest_tokens")
+    .insert({ tournament_id: tournamentId, display_name: trimmed })
+    .select("id, token")
+    .single();
+
+  if (tokenError || !guestToken) return { error: tokenError?.message ?? "Failed to create guest token" };
+
+  const { error } = await supabaseAdmin.from("team_members").insert({
+    team_id: teamId,
+    guest_token_id: guestToken.id,
+    display_name: trimmed,
+  });
+
+  if (error) return { error: error.message };
+
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `${trimmed} (guest) joined team "${team.name}" in your tournament "${tournament.name}".`,
+  });
+
+  await removeMatchingPresetSlot(tournamentId, trimmed);
+
+  const cookieStore = await cookies();
+  cookieStore.set(`gt_${tournamentId}`, guestToken.token, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+  });
+
+  revalidatePath(`/join/${tournamentId}`);
+  return { ok: true };
+}

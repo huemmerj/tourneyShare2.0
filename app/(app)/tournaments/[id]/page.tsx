@@ -63,8 +63,9 @@ export default async function TournamentPage({
 
   const userIds = rawParticipants?.filter((p) => p.user_id).map((p) => p.user_id as string) ?? [];
   const guestIds = rawParticipants?.filter((p) => p.guest_token_id).map((p) => p.guest_token_id as string) ?? [];
+  const teamIds = rawParticipants?.filter((p) => p.team_id).map((p) => p.team_id as string) ?? [];
 
-  const [usersRes, guestsRes, matchesRes] = await Promise.all([
+  const [usersRes, guestsRes, matchesRes, teamsRes] = await Promise.all([
     userIds.length > 0
       ? supabaseAdmin.from("user").select("id, name, email").in("id", userIds)
       : Promise.resolve({ data: [] as { id: string; name: string; email: string }[] }),
@@ -77,15 +78,40 @@ export default async function TournamentPage({
       .eq("tournament_id", id)
       .order("round_number")
       .order("match_number"),
+    teamIds.length > 0
+      ? supabaseAdmin
+          .from("teams")
+          .select("id, name")
+          .in("id", teamIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
   ]);
+
+  // Fetch team members for all teams
+  type TeamMemberRow = { id: string; team_id: string; display_name: string };
+  let teamMembersData: TeamMemberRow[] = [];
+  if (teamIds.length > 0) {
+    const { data } = await supabaseAdmin
+      .from("team_members")
+      .select("id, team_id, display_name")
+      .in("team_id", teamIds)
+      .order("joined_at");
+    teamMembersData = (data ?? []) as TeamMemberRow[];
+  }
 
   const usersMap = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
   const guestsMap = new Map((guestsRes.data ?? []).map((g) => [g.id, g]));
+  const teamsMap = new Map((teamsRes.data ?? []).map((t) => [t.id, t]));
+  const membersByTeam = teamMembersData.reduce<Record<string, TeamMemberRow[]>>((acc, m) => {
+    (acc[m.team_id] ??= []).push(m);
+    return acc;
+  }, {});
 
   const participants = (rawParticipants ?? []).map((p) => ({
     ...p,
     user: p.user_id ? (usersMap.get(p.user_id) ?? null) : null,
     guest: p.guest_token_id ? (guestsMap.get(p.guest_token_id) ?? null) : null,
+    team: p.team_id ? (teamsMap.get(p.team_id) ?? null) : null,
+    teamMembers: p.team_id ? (membersByTeam[p.team_id] ?? []) : [],
   }));
 
   const matches = matchesRes.data ?? [];
@@ -192,7 +218,12 @@ export default async function TournamentPage({
 
       {/* Matches */}
       {matches.length > 0 && (
-        <MatchesView matches={matches} participants={participants} isOwner={isOwner} />
+        <MatchesView
+          matches={matches}
+          participants={participants}
+          isOwner={isOwner}
+          scoringRule={tournament.scoring_rule}
+        />
       )}
     </div>
   );

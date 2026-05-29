@@ -30,6 +30,7 @@ export default function EditTournamentPage({
   const [isPublic, setIsPublic] = useState(false);
   const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [disputeFlow, setDisputeFlow] = useState(false);
+  const [scoringRule, setScoringRule] = useState<"higher_wins" | "lower_wins">("higher_wins");
 
   useEffect(() => {
     supabase
@@ -51,6 +52,7 @@ export default function EditTournamentPage({
           setIsPublic(data.is_public);
           setAllowAnonymous(data.allow_anonymous);
           setDisputeFlow(data.dispute_flow_enabled);
+          setScoringRule(data.scoring_rule ?? "higher_wins");
         }
         setFetching(false);
       });
@@ -75,6 +77,7 @@ export default function EditTournamentPage({
       is_public: isPublic,
       allow_anonymous: allowAnonymous,
       dispute_flow_enabled: disputeFlow,
+      scoring_rule: scoringRule,
     });
 
     setLoading(false);
@@ -153,6 +156,16 @@ export default function EditTournamentPage({
           <Toggle checked={isPublic} onChange={setIsPublic} label="Public tournament" description="Visible in the discovery feed" />
           <Toggle checked={allowAnonymous} onChange={setAllowAnonymous} label="Allow anonymous join" description="Participants can join without an account" />
           <Toggle checked={disputeFlow} onChange={setDisputeFlow} label="Enable dispute flow" description="Participants must confirm scores" />
+          <Field label="Scoring rule">
+            <select
+              value={scoringRule}
+              onChange={(e) => setScoringRule(e.target.value as "higher_wins" | "lower_wins")}
+              className={inputCls}
+            >
+              <option value="higher_wins">Higher score wins</option>
+              <option value="lower_wins">Lower score wins</option>
+            </select>
+          </Field>
         </section>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

@@ -1,5 +1,7 @@
+import { headers, cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { MatchesView } from "@/app/(app)/tournaments/[id]/matches-view";
@@ -43,12 +45,14 @@ export default async function SpectatorPage({
 
   if (!tournament) notFound();
 
-  // Non-public tournaments are only accessible via the join link (which requires knowing the code)
-  // but we still render them here — the invite_code is the auth mechanism for spectating.
+  // Identify viewer: logged-in user or guest via cookie
+  const session = await auth.api.getSession({ headers: await headers() });
+  const cookieStore = await cookies();
+  const guestTokenValue = cookieStore.get(`gt_${tournament.id}`)?.value;
 
   const { data: rawParticipants } = await supabaseAdmin
     .from("participants")
-    .select("id, tournament_id, user_id, guest_token_id, team_id, seed, status, registered_at")
+    .select("id, tournament_id, user_id, guest_token_id, team_id, display_name, seed, status, registered_at")
     .eq("tournament_id", tournament.id)
     .order("registered_at");
 
@@ -56,8 +60,10 @@ export default async function SpectatorPage({
     rawParticipants?.filter((p) => p.user_id).map((p) => p.user_id as string) ?? [];
   const guestIds =
     rawParticipants?.filter((p) => p.guest_token_id).map((p) => p.guest_token_id as string) ?? [];
+  const teamIds =
+    rawParticipants?.filter((p) => p.team_id).map((p) => p.team_id as string) ?? [];
 
-  const [usersRes, guestsRes, matchesRes] = await Promise.all([
+  const [usersRes, guestsRes, matchesRes, teamsRes] = await Promise.all([
     userIds.length > 0
       ? supabaseAdmin.from("user").select("id, name, email").in("id", userIds)
       : Promise.resolve({ data: [] as { id: string; name: string; email: string }[] }),
@@ -70,23 +76,93 @@ export default async function SpectatorPage({
       .eq("tournament_id", tournament.id)
       .order("round_number")
       .order("match_number"),
+    teamIds.length > 0
+      ? supabaseAdmin.from("teams").select("id, name").in("id", teamIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
   ]);
+
+  // Fetch team members
+  type TeamMemberRow = { id: string; team_id: string; display_name: string };
+  let teamMembersData: TeamMemberRow[] = [];
+  if (teamIds.length > 0) {
+    const { data } = await supabaseAdmin
+      .from("team_members")
+      .select("id, team_id, display_name")
+      .in("team_id", teamIds)
+      .order("joined_at");
+    teamMembersData = (data ?? []) as TeamMemberRow[];
+  }
 
   const usersMap = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
   const guestsMap = new Map((guestsRes.data ?? []).map((g) => [g.id, g]));
+  const teamsMap = new Map((teamsRes.data ?? []).map((t) => [t.id, t]));
+  const membersByTeam = teamMembersData.reduce<Record<string, TeamMemberRow[]>>((acc, m) => {
+    (acc[m.team_id] ??= []).push(m);
+    return acc;
+  }, {});
 
   const participants = (rawParticipants ?? []).map((p) => ({
     ...p,
     user: p.user_id ? (usersMap.get(p.user_id) ?? null) : null,
     guest: p.guest_token_id ? (guestsMap.get(p.guest_token_id) ?? null) : null,
+    team: p.team_id ? (teamsMap.get(p.team_id) ?? null) : null,
+    teamMembers: p.team_id ? (membersByTeam[p.team_id] ?? []) : [],
   }));
 
   const matches = matchesRes.data ?? [];
-  const showMatches =
-    matches.length > 0 &&
-    (tournament.results_visible || tournament.status === "completed");
+
+  // Find the current viewer's participant ID
+  let currentParticipantId: string | null = null;
+
+  if (session) {
+    // Check direct solo participant
+    const directP = participants.find((p) => p.user_id === session.user.id);
+    if (directP) {
+      currentParticipantId = directP.id;
+    } else if (teamIds.length > 0) {
+      // Check if user is a team member
+      const { data: membership } = await supabaseAdmin
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", session.user.id)
+        .in("team_id", teamIds)
+        .maybeSingle();
+      if (membership) {
+        const teamP = participants.find((p) => p.team_id === membership.team_id);
+        if (teamP) currentParticipantId = teamP.id;
+      }
+    }
+  } else if (guestTokenValue) {
+    // Resolve guest token → participant
+    const { data: gt } = await supabaseAdmin
+      .from("guest_tokens")
+      .select("id")
+      .eq("token", guestTokenValue)
+      .eq("tournament_id", tournament.id)
+      .maybeSingle();
+    if (gt) {
+      const directP = participants.find((p) => p.guest_token_id === gt.id);
+      if (directP) {
+        currentParticipantId = directP.id;
+      } else if (teamIds.length > 0) {
+        const { data: membership } = await supabaseAdmin
+          .from("team_members")
+          .select("team_id")
+          .eq("guest_token_id", gt.id)
+          .in("team_id", teamIds)
+          .maybeSingle();
+        if (membership) {
+          const teamP = participants.find((p) => p.team_id === membership.team_id);
+          if (teamP) currentParticipantId = teamP.id;
+        }
+      }
+    }
+  }
 
   const participantCount = participants.length;
+  // Show bracket whenever matches exist; scores only when results_visible or completed
+  const showMatches = matches.length > 0;
+  const showScores = tournament.results_visible || tournament.status === "completed";
 
   return (
     <div className="flex min-h-full flex-col">
@@ -99,12 +175,16 @@ export default async function SpectatorPage({
             TourneyShare
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/sign-in">Sign in</Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href="/sign-up">Get started</Link>
-            </Button>
+            {session ? null : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/sign-in">Sign in</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/sign-up">Get started</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -134,6 +214,18 @@ export default async function SpectatorPage({
               {tournament.description}
             </p>
           )}
+          {currentParticipantId && (
+            <p className="mt-2 text-sm text-primary font-medium">
+              Your matches are highlighted below.
+            </p>
+          )}
+          {!currentParticipantId && tournament.status === "registration" && (
+            <div className="mt-3">
+              <Button asChild>
+                <Link href={`/join/${tournament.invite_code}`}>Join tournament</Link>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Participants */}
@@ -147,26 +239,50 @@ export default async function SpectatorPage({
           {participants.length > 0 ? (
             <ul className="divide-y divide-border">
               {participants.map((p) => {
-                const displayName = p.guest
-                  ? p.guest.display_name
-                  : p.user
-                    ? p.user.name || p.user.email
-                    : "Unknown";
+                const isMe =
+                  currentParticipantId !== null && p.id === currentParticipantId;
+                const displayName = p.team
+                  ? p.team.name
+                  : p.guest
+                    ? p.guest.display_name
+                    : p.user
+                      ? p.user.name || p.user.email
+                      : p.display_name ?? "Unknown";
+
                 return (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between px-4 py-2.5 text-sm"
-                  >
-                    <span className="text-foreground">{displayName}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                        p.status === "confirmed"
-                          ? "bg-success/10 text-success"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {p.status}
-                    </span>
+                  <li key={p.id} className={`px-4 py-2.5 text-sm ${isMe ? "bg-primary/5" : ""}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-foreground">{displayName}</span>
+                        {isMe && (
+                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                            You
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                          p.status === "confirmed"
+                            ? "bg-success/10 text-success"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </div>
+                    {/* Team members */}
+                    {p.team && p.teamMembers.length > 0 && (
+                      <ul className="mt-1 flex flex-wrap gap-1 pl-1">
+                        {p.teamMembers.map((m) => (
+                          <li
+                            key={m.id}
+                            className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                          >
+                            {m.display_name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 );
               })}
@@ -180,13 +296,26 @@ export default async function SpectatorPage({
 
         {/* Bracket / matches */}
         {showMatches && (
-          <MatchesView matches={matches} participants={participants} isOwner={false} />
+          <>
+            {!showScores && (
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                Scores are hidden until the tournament is completed.
+              </p>
+            )}
+            <MatchesView
+              matches={matches}
+              participants={participants}
+              isOwner={false}
+              currentParticipantId={currentParticipantId}
+              showScores={showScores}
+            />
+          </>
         )}
 
-        {matches.length > 0 && !showMatches && (
+        {!showMatches && tournament.status === "registration" && (
           <div className="mt-4 rounded-xl border border-border bg-card px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">
-              Results will be visible once the tournament is completed.
+              The bracket will appear here once the tournament starts.
             </p>
           </div>
         )}

@@ -33,6 +33,7 @@ export type Tournament = {
   allow_anonymous: boolean;
   dispute_flow_enabled: boolean;
   results_visible: boolean;
+  scoring_rule: "higher_wins" | "lower_wins";
   created_at: string;
   updated_at: string;
 };
