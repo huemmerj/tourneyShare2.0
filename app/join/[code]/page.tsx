@@ -45,52 +45,56 @@ export default async function JoinPage({
     guestTokenId = gt?.id ?? null;
   }
 
-  // Check if already joined (solo: participant row; team: team_members row)
+  // Check if already joined.
+  // For self_select teams: check team_members.
+  // For admin_assigned teams (or solo): check participants directly.
   let alreadyJoined = false;
-  if (tournament.participant_type === "team") {
-    if (session) {
-      // User is in a team for this tournament if they appear in team_members for any team here
+  if (session) {
+    const { data } = await supabaseAdmin
+      .from("participants")
+      .select("id")
+      .eq("tournament_id", tournament.id)
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    alreadyJoined = !!data;
+    // Also check team_members (self_select mode where user is in a team)
+    if (!alreadyJoined && tournament.participant_type === "team") {
       const { data: teams } = await supabaseAdmin
-        .from("teams")
-        .select("id")
-        .eq("tournament_id", tournament.id);
+        .from("teams").select("id").eq("tournament_id", tournament.id);
       const teamIds = teams?.map((t) => t.id) ?? [];
       if (teamIds.length > 0) {
-        const { data } = await supabaseAdmin
+        const { data: mem } = await supabaseAdmin
           .from("team_members")
           .select("id")
           .eq("user_id", session.user.id)
           .in("team_id", teamIds)
           .maybeSingle();
-        alreadyJoined = !!data;
+        alreadyJoined = !!mem;
       }
-    } else if (guestTokenId) {
+    }
+  } else if (guestTokenId) {
+    // Check participants directly (covers solo and admin_assigned team mode)
+    const { data } = await supabaseAdmin
+      .from("participants")
+      .select("id")
+      .eq("tournament_id", tournament.id)
+      .eq("guest_token_id", guestTokenId)
+      .maybeSingle();
+    alreadyJoined = !!data;
+    // Also check team_members (self_select mode)
+    if (!alreadyJoined && tournament.participant_type === "team") {
       const { data: teams } = await supabaseAdmin
-        .from("teams")
-        .select("id")
-        .eq("tournament_id", tournament.id);
+        .from("teams").select("id").eq("tournament_id", tournament.id);
       const teamIds = teams?.map((t) => t.id) ?? [];
       if (teamIds.length > 0) {
-        const { data } = await supabaseAdmin
+        const { data: mem } = await supabaseAdmin
           .from("team_members")
           .select("id")
           .eq("guest_token_id", guestTokenId)
           .in("team_id", teamIds)
           .maybeSingle();
-        alreadyJoined = !!data;
+        alreadyJoined = !!mem;
       }
-    }
-  } else {
-    if (session) {
-      const { data } = await supabaseAdmin
-        .from("participants")
-        .select("id")
-        .eq("tournament_id", tournament.id)
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-      alreadyJoined = !!data;
-    } else if (guestTokenId) {
-      alreadyJoined = true; // guest token exists for this tournament = already joined
     }
   }
 
@@ -190,6 +194,35 @@ export default async function JoinPage({
             <p className="text-center text-sm text-muted-foreground">
               {dict.join.full}
             </p>
+          ) : tournament.participant_type === "team" && tournament.team_mode === "admin_assigned" && presetSlots.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">{dict.tournament.admin_registered_note}</p>
+              <ClaimSlotForm
+                tournamentId={tournament.id}
+                presetSlots={presetSlots}
+                isAuthenticated={!!session}
+                allowAnonymous={tournament.allow_anonymous}
+              />
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">{dict.join.not_on_list}</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              {session ? (
+                <JoinButton tournamentId={tournament.id} />
+              ) : tournament.allow_anonymous ? (
+                <div className="flex flex-col gap-3">
+                  <GuestJoinForm tournamentId={tournament.id} />
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" asChild className="w-full">
+                  <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
+                </Button>
+              )}
+            </div>
           ) : tournament.participant_type === "team" && tournament.team_mode === "admin_assigned" ? (
             session ? (
               <div className="flex flex-col gap-3">

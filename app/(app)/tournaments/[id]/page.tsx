@@ -148,25 +148,14 @@ export default async function TournamentPage({
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* Invite link */}
-        <div className="rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold text-foreground">
-            {dict.tournament.invite_link}
-          </h2>
-          <p className="mb-3 break-all font-mono text-xs text-muted-foreground overflow-hidden">
-            {inviteUrl}
-          </p>
-          <div className="flex gap-2">
-            <CopyButton text={inviteUrl} />
-            <QRCodeDialog url={inviteUrl} />
-          </div>
-        </div>
-
+      {/* ── Section: Turnierkonfiguration ─────────────────────────── */}
+      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Konfiguration
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
         {/* Details */}
-        <div className="rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold text-foreground">{dict.tournament.details}</h2>
-          <dl className="flex flex-col gap-1.5 text-sm">
+        <div className="rounded-xl border border-border bg-card/50 p-4">
+          <dl className="flex flex-col gap-2 text-sm">
             {tournament.sport_type && (
               <Row label={dict.tournament.sport_game} value={tournament.sport_type} />
             )}
@@ -180,13 +169,28 @@ export default async function TournamentPage({
             {tournament.end_date && (
               <Row label={dict.tournament.end} value={new Date(tournament.end_date).toLocaleString()} />
             )}
-            <Row label={dict.tournament.anonymous_join} value={tournament.allow_anonymous ? dict.common.allowed : dict.common.disabled} />
-            <Row label={dict.tournament.dispute_flow_label} value={tournament.dispute_flow_enabled ? dict.common.enabled : dict.common.disabled} />
           </dl>
+        </div>
+
+        {/* Invite link */}
+        <div className="rounded-xl border border-border bg-card/50 p-4">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            {dict.tournament.invite_link}
+          </p>
+          <p className="mb-3 break-all font-mono text-xs text-muted-foreground overflow-hidden">
+            {inviteUrl}
+          </p>
+          <div className="flex gap-2">
+            <CopyButton text={inviteUrl} />
+            <QRCodeDialog url={inviteUrl} />
+          </div>
         </div>
       </div>
 
-      {/* Participants */}
+      {/* ── Section: Teilnehmer ────────────────────────────────────── */}
+      <p className="mt-6 mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        {dict.participants.title}
+      </p>
       <ParticipantManager
         tournamentId={id}
         participants={participants}
@@ -196,7 +200,6 @@ export default async function TournamentPage({
       {/* Admin team assignment (admin_assigned mode) */}
       {isOwner &&
         tournament.participant_type === "team" &&
-        tournament.team_mode === "admin_assigned" &&
         tournament.status === "registration" && (() => {
           const unassignedData = participants
             .filter((p) => !p.team_id)
@@ -224,10 +227,15 @@ export default async function TournamentPage({
           );
         })()}
 
-      {/* Generate bracket */}
+      {/* ── Section: Bracket / Spiele ──────────────────────────────── */}
+      {(matches.length > 0 || (isOwner && tournament.status === "registration" && confirmedCount >= 2)) && (
+        <p className="mt-8 mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          {dict.tournament.bracket}
+        </p>
+      )}
+
       {isOwner && tournament.status === "registration" && confirmedCount >= 2 && (
-        <div className="mt-4 rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-1 text-sm font-semibold text-foreground">{dict.tournament.bracket}</h2>
+        <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
           <p className="mb-3 text-sm text-muted-foreground">
             {confirmedCount === 1
               ? dict.tournament.confirmed_one
@@ -238,7 +246,6 @@ export default async function TournamentPage({
         </div>
       )}
 
-      {/* Matches */}
       {matches.length > 0 && (
         <MatchesView
           matches={matches}

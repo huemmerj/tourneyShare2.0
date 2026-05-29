@@ -92,12 +92,11 @@ export function ParticipantManager({
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-border bg-card">
+    <div className="rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">
-          {t("participants.title")}{" "}
-          <span className="text-muted-foreground">({participants.length})</span>
-        </h2>
+        <span className="text-sm text-muted-foreground">
+          {participants.length} {t("participants.title").toLowerCase()}
+        </span>
         {canEdit && participants.length > 1 && (
           <Button
             variant="outline"
