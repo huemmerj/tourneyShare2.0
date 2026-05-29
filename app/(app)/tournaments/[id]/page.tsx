@@ -109,17 +109,10 @@ export default async function TournamentPage({
   const matches = matchesRes.data ?? [];
 
   // Compute group stage info for group_knockout format
-  const perGroup =
-    tournament.format === "group_knockout" && tournament.group_count
-      ? Math.floor(participantCount / tournament.group_count)
-      : 0;
-  const maxGroupRound =
-    tournament.format === "group_knockout" && tournament.group_count
-      ? tournament.group_count * (perGroup - 1)
-      : 0;
+  const groupRounds = matches.filter((m) => m.round_label?.startsWith("Group"));
+  const maxGroupRound = groupRounds.length > 0 ? Math.max(...groupRounds.map((m) => m.round_number)) : 0;
   const groupStageDone =
     maxGroupRound > 0 &&
-    matches.length > 0 &&
     matches.filter((m) => m.round_number <= maxGroupRound).every(
       (m) => m.status === "completed" || m.status === "bye",
     );
