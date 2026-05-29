@@ -38,7 +38,9 @@
     "round_robin": "Round Robin",
     "swiss": "Swiss",
     "single_elimination_short": "Single Elim.",
-    "double_elimination_short": "Double Elim."
+    "double_elimination_short": "Double Elim.",
+    "group_knockout": "Group Stage → Knockout",
+    "group_knockout_short": "Groups + KO"
   },
   "auth": {
     "sign_in": {
@@ -146,6 +148,8 @@
     "confirm_delete": "Confirm delete",
     "generating": "Generating…",
     "generate_bracket": "Generate bracket",
+    "generate_knockout": "Generate knockout phase",
+    "ready_for_knockout": "Group stage complete. Ready to generate knockout phase.",
     "qr_code": "QR Code",
     "invite_qr_title": "Invite QR Code",
     "scan_to_join": "Scan to join the tournament",

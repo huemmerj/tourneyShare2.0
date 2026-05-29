@@ -2,7 +2,8 @@ export type TournamentFormat =
   | "single_elimination"
   | "double_elimination"
   | "round_robin"
-  | "swiss";
+  | "swiss"
+  | "group_knockout";
 
 export type ParticipantType = "solo" | "team";
 

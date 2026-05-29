@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { getLocale, getDictionary } from "@/lib/i18n";
 import { TournamentActions, CopyButton } from "./tournament-actions";
 import { GenerateBracketButton } from "./generate-bracket-button";
+import { GenerateKnockoutButton } from "./generate-knockout-button";
 import { MatchesView } from "./matches-view";
 import { ParticipantManager } from "./participant-manager";
 import { QRCodeDialog } from "./qr-code-dialog";
@@ -235,7 +236,7 @@ export default async function TournamentPage({
         </p>
       )}
 
-      {isOwner && tournament.status === "registration" && confirmedCount >= 2 && (
+      {isOwner && tournament.status === "registration" && tournament.format !== "group_knockout" && confirmedCount >= 2 && (
         <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
           <p className="mb-3 text-sm text-muted-foreground">
             {confirmedCount === 1
@@ -244,6 +245,26 @@ export default async function TournamentPage({
             {dict.tournament.ready_to_generate}
           </p>
           <GenerateBracketButton tournamentId={id} />
+        </div>
+      )}
+
+      {/* Group stage generation for group_knockout */}
+      {isOwner && tournament.format === "group_knockout" && tournament.status === "registration" && confirmedCount === 8 && matches.length === 0 && (
+        <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
+          <p className="mb-3 text-sm text-muted-foreground">
+            {dict.tournament.ready_to_generate}
+          </p>
+          <GenerateBracketButton tournamentId={id} />
+        </div>
+      )}
+
+      {/* Knockout phase generation for group_knockout */}
+      {isOwner && tournament.format === "group_knockout" && tournament.status === "active" && matches.length > 0 && matches.every((m) => m.round_number >= 7 || m.status === "completed") && !matches.some((m) => m.round_number >= 7) && (
+        <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 mt-4">
+          <p className="mb-3 text-sm text-muted-foreground">
+            {dict.tournament.ready_for_knockout}
+          </p>
+          <GenerateKnockoutButton tournamentId={id} />
         </div>
       )}
 

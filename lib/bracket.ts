@@ -457,10 +457,121 @@ export function generateSwissRound(
   return all;
 }
 
+// ─── Group + Knockout ─────────────────────────────────────────────────────────
+
+function generateRoundRobinGroup(
+  tournamentId: string,
+  groupParticipants: Participant[],
+  groupLabel: string,
+  roundOffset: number,
+  totalRounds: number
+): MatchRow[] {
+  const list = [...groupParticipants.map((p) => p.id as string | null)];
+  // Circle method requires even count
+  if (list.length % 2 !== 0) list.push(null);
+
+  const m = list.length;
+  const numRounds = m - 1;
+  const fixed = list[0];
+  let rotating = list.slice(1);
+  const all: MatchRow[] = [];
+
+  for (let round = 1; round <= numRounds; round++) {
+    const circle = [fixed, ...rotating];
+    let matchNum = 1;
+    for (let i = 0; i < m / 2; i++) {
+      const pA = circle[i];
+      const pB = circle[m - 1 - i];
+      if (pA === null || pB === null) continue;
+      all.push({
+        id: uuid(),
+        tournament_id: tournamentId,
+        round_number: roundOffset + round - 1,
+        round_label: `${groupLabel} · Round ${round}/${totalRounds}`,
+        match_number: matchNum++,
+        bracket: "winners",
+        participant_a_id: pA,
+        participant_b_id: pB,
+        status: "scheduled",
+        winner_id: null,
+        next_winner_match_id: null,
+        next_loser_match_id: null,
+      });
+    }
+    rotating = [rotating[rotating.length - 1], ...rotating.slice(0, -1)];
+  }
+
+  return all;
+}
+
+export function generateGroupStage(
+  tournamentId: string,
+  participants: Participant[]
+): MatchRow[] {
+  const sorted = sortedBySeeed(participants);
+  if (sorted.length !== 8) throw new Error("Group knockout requires exactly 8 participants");
+
+  const groupA = [sorted[0], sorted[3], sorted[4], sorted[7]];
+  const groupB = [sorted[1], sorted[2], sorted[5], sorted[6]];
+
+  const groupARounds = 3;
+  const aMatches = generateRoundRobinGroup(tournamentId, groupA, "Group A", 1, groupARounds);
+  const bMatches = generateRoundRobinGroup(tournamentId, groupB, "Group B", 4, groupARounds);
+
+  return [...aMatches, ...bMatches];
+}
+
+export function generateKnockoutMatches(
+  tournamentId: string,
+  groupA: [string, string, string, string],
+  groupB: [string, string, string, string],
+): MatchRow[] {
+  const [a1, a2, a3, a4] = groupA;
+  const [b1, b2, b3, b4] = groupB;
+
+  const final = createMatch(tournamentId, 8, "Finals", 1);
+  const thirdPlace = createMatch(tournamentId, 8, "Finals", 2);
+  const fifthPlace = createMatch(tournamentId, 8, "Finals", 3);
+  const seventhPlace = createMatch(tournamentId, 8, "Finals", 4);
+
+  const sf1 = createMatch(tournamentId, 7, "Semi-finals", 1, a1, b2, final.id, thirdPlace.id);
+  const sf2 = createMatch(tournamentId, 7, "Semi-finals", 2, b1, a2, final.id, thirdPlace.id);
+  const sf3 = createMatch(tournamentId, 7, "Semi-finals", 3, a3, b4, fifthPlace.id, seventhPlace.id);
+  const sf4 = createMatch(tournamentId, 7, "Semi-finals", 4, b3, a4, fifthPlace.id, seventhPlace.id);
+
+  return [sf1, sf2, sf3, sf4, final, thirdPlace, fifthPlace, seventhPlace];
+}
+
+function createMatch(
+  tournamentId: string,
+  roundNumber: number,
+  roundLabel: string,
+  matchNumber: number,
+  participantA?: string | null,
+  participantB?: string | null,
+  nextWinnerId?: string | null,
+  nextLoserId?: string | null,
+): MatchRow {
+  return {
+    id: uuid(),
+    tournament_id: tournamentId,
+    round_number: roundNumber,
+    round_label: roundLabel,
+    match_number: matchNumber,
+    bracket: "winners",
+    participant_a_id: participantA ?? null,
+    participant_b_id: participantB ?? null,
+    status: "scheduled",
+    winner_id: null,
+    next_winner_match_id: nextWinnerId ?? null,
+    next_loser_match_id: nextLoserId ?? null,
+  };
+}
+
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
 export function generateBracket(
-  format: "single_elimination" | "double_elimination" | "round_robin" | "swiss",
+  format: "single_elimination" | "double_elimination" | "round_robin" | "swiss" | "group_knockout",
   tournamentId: string,
   participants: Participant[]
 ): MatchRow[] {
@@ -473,5 +584,7 @@ export function generateBracket(
       return generateRoundRobin(tournamentId, participants);
     case "swiss":
       return generateSwissRound(tournamentId, participants, 1);
+    case "group_knockout":
+      return generateGroupStage(tournamentId, participants);
   }
 }

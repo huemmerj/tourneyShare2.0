@@ -38,7 +38,9 @@
     "round_robin": "Jeder gegen Jeden",
     "swiss": "Schweizer System",
     "single_elimination_short": "Einf. Elim.",
-    "double_elimination_short": "Doppel Elim."
+    "double_elimination_short": "Doppel Elim.",
+    "group_knockout": "Gruppenphase → K.o.",
+    "group_knockout_short": "Gruppen + KO"
   },
   "auth": {
     "sign_in": {
@@ -146,6 +148,8 @@
     "confirm_delete": "Löschen bestätigen",
     "generating": "Generieren…",
     "generate_bracket": "Bracket generieren",
+    "generate_knockout": "K.o.-Phase generieren",
+    "ready_for_knockout": "Gruppenphase abgeschlossen. Bereit zur Generierung der K.o.-Phase.",
     "qr_code": "QR-Code",
     "invite_qr_title": "Einladungs-QR-Code",
     "scan_to_join": "Scannen, um dem Turnier beizutreten",

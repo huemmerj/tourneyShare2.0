@@ -117,6 +117,7 @@ export default function NewTournamentPage() {
               <option value="double_elimination">{t("format.double_elimination")}</option>
               <option value="round_robin">{t("format.round_robin")}</option>
               <option value="swiss">{t("format.swiss")}</option>
+<option value="group_knockout">{t("format.group_knockout")}</option>
             </select>
           </Field>
           <Field label={t("tournament.participant_type")} required>

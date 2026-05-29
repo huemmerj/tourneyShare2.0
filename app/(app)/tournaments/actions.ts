@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { generateBracket } from "@/lib/bracket";
+import { generateBracket, generateKnockoutMatches } from "@/lib/bracket";
 import { createNotification, createNotifications } from "@/lib/notifications";
 import type { TournamentFormat, ParticipantType, Participant } from "@/lib/types";
 
@@ -141,6 +141,116 @@ export async function generateTournamentBracket(
 
   revalidatePath(`/tournaments/${id}`);
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function generateGroupKnockoutPhase(
+  id: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("name, format, status, owner_id")
+    .eq("id", id)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+  if (tournament.format !== "group_knockout") return { error: "Wrong tournament format" };
+  if (tournament.status !== "active") return { error: "Tournament must be active" };
+
+  // Check knockout phase not already generated
+  const { data: existingKo } = await supabaseAdmin
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_id", id)
+    .gte("round_number", 7)
+    .limit(1);
+
+  if (existingKo && existingKo.length > 0) return { error: "Knockout phase already generated" };
+
+  // Load all group stage matches
+  const { data: groupMatches } = await supabaseAdmin
+    .from("matches")
+    .select("id, round_number, round_label, participant_a_id, participant_b_id, winner_id, status")
+    .eq("tournament_id", id)
+    .lte("round_number", 6)
+    .not("status", "eq", "bye");
+
+  if (!groupMatches || groupMatches.length < 12)
+    return { error: "Group stage matches not found" };
+
+  const allMatches = groupMatches;
+  const allCompleted = allMatches.every((m) => m.status === "completed");
+  if (!allCompleted) return { error: "All group stage matches must be completed first" };
+
+  // Determine which participants are in which group based on round_label
+  const groupAMatches = allMatches.filter((m) => m.round_label?.startsWith("Group A"));
+  const groupBMatches = allMatches.filter((m) => m.round_label?.startsWith("Group B"));
+
+  // Compute standings
+  type GroupMatch = (typeof allMatches)[number];
+
+  function computeStandings(matches: GroupMatch[]): string[] {
+    const wins = new Map<string, number>();
+    const seen = new Set<string>();
+
+    for (const m of matches) {
+      if (!m.winner_id) continue;
+      wins.set(m.winner_id, (wins.get(m.winner_id) ?? 0) + 1);
+      if (m.participant_a_id) seen.add(m.participant_a_id);
+      if (m.participant_b_id) seen.add(m.participant_b_id);
+    }
+
+    return [...seen].sort((a, b) => {
+      const wA = wins.get(a) ?? 0;
+      const wB = wins.get(b) ?? 0;
+      if (wB !== wA) return wB - wA;
+      return a.localeCompare(b);
+    });
+  }
+
+  const groupARanked = computeStandings(groupAMatches);
+  const groupBRanked = computeStandings(groupBMatches);
+
+  if (groupARanked.length !== 4 || groupBRanked.length !== 4)
+    return { error: "Each group must have exactly 4 participants" };
+
+  // Load seeds for tiebreaker if needed
+  const { data: participantsData } = await supabaseAdmin
+    .from("participants")
+    .select("id, seed")
+    .eq("tournament_id", id)
+    .in("id", [...groupARanked, ...groupBRanked]);
+
+  const seedMap = new Map((participantsData ?? []).map((p) => [p.id, p.seed]));
+
+  function rankByWinsThenSeed(ranked: string[]): [string, string, string, string] {
+    const sorted = [...ranked].sort((a, b) => {
+      const winsA = allMatches.filter((m) => m.winner_id === a).length;
+      const winsB = allMatches.filter((m) => m.winner_id === b).length;
+      if (winsB !== winsA) return winsB - winsA;
+      const seedA = seedMap.get(a) ?? 999;
+      const seedB = seedMap.get(b) ?? 999;
+      return seedA - seedB;
+    });
+    return [sorted[0]!, sorted[1]!, sorted[2]!, sorted[3]!];
+  }
+
+  const aRanked = rankByWinsThenSeed(groupARanked);
+  const bRanked = rankByWinsThenSeed(groupBRanked);
+
+  const knockoutMatches = generateKnockoutMatches(id, aRanked, bRanked);
+
+  const { error: insertError } = await supabaseAdmin
+    .from("matches")
+    .insert(knockoutMatches);
+
+  if (insertError) return { error: insertError.message };
+
+  revalidatePath(`/tournaments/${id}`);
   return { ok: true };
 }
 
