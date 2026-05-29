@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             TourneyShare
           </Link>
           <nav className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
             <LanguageSwitcher />
             <Link
               href="/profile"

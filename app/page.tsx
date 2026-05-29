@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getLocale, getDictionary } from "@/lib/i18n";
 
@@ -35,6 +36,7 @@ export default async function Home() {
             {dict.brand}
           </span>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Button variant="ghost" size="sm" asChild>
               <Link href="/sign-in">{dict.nav.sign_in}</Link>
             </Button>

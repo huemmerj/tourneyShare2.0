@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { MatchesView } from "@/app/(app)/tournaments/[id]/matches-view";
 import { getLocale, getDictionary } from "@/lib/i18n";
@@ -164,6 +165,7 @@ export default async function SpectatorPage({
             TourneyShare
           </Link>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {session ? null : (
               <>
                 <Button variant="ghost" size="sm" asChild>

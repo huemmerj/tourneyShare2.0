@@ -4,6 +4,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { JoinButton } from "./join-button";
 import { GuestJoinForm } from "./guest-join-form";
 import { ClaimSlotForm } from "./claim-slot-form";
@@ -152,6 +153,9 @@ export default async function JoinPage({
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center bg-background px-4 py-12">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md">
         <Link
           href="/"
