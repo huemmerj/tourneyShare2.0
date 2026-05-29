@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { MatchesView } from "@/app/(app)/tournaments/[id]/matches-view";
+import { SelfAssignTeam } from "./self-assign-team";
 import { getLocale, getDictionary } from "@/lib/i18n";
 import type { Tournament } from "@/lib/types";
 
@@ -83,6 +84,34 @@ export default async function SpectatorPage({
     teamMembersData = (data ?? []) as TeamMemberRow[];
   }
 
+  // Fetch all teams with member counts (for self-assign UI)
+  let allTeamsWithCounts: { id: string; name: string; memberCount: number; maxSize: number | null }[] = [];
+  if (tournament.participant_type === "team" && tournament.team_mode === "self_select") {
+    const { data: allTeams } = await supabaseAdmin
+      .from("teams")
+      .select("id, name")
+      .eq("tournament_id", tournament.id)
+      .order("created_at");
+    if (allTeams && allTeams.length > 0) {
+      const counts = await Promise.all(
+        allTeams.map((t) =>
+          supabaseAdmin
+            .from("team_members")
+            .select("id", { count: "exact", head: true })
+            .eq("team_id", t.id)
+            .then((r) => ({ id: t.id, count: r.count ?? 0 }))
+        )
+      );
+      const countMap = new Map(counts.map((c) => [c.id, c.count]));
+      allTeamsWithCounts = allTeams.map((t) => ({
+        id: t.id,
+        name: t.name,
+        memberCount: countMap.get(t.id) ?? 0,
+        maxSize: tournament.max_team_size,
+      }));
+    }
+  }
+
   const usersMap = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
   const guestsMap = new Map((guestsRes.data ?? []).map((g) => [g.id, g]));
   const teamsMap = new Map((teamsRes.data ?? []).map((t) => [t.id, t]));
@@ -150,6 +179,9 @@ export default async function SpectatorPage({
   }
 
   const participantCount = participants.length;
+  const currentParticipantUnassigned =
+    currentParticipantId !== null &&
+    !participants.find((p) => p.id === currentParticipantId)?.team_id;
   // Show bracket whenever matches exist; scores only when results_visible or completed
   const showMatches = matches.length > 0;
   const showScores = tournament.results_visible || tournament.status === "completed";
@@ -284,6 +316,21 @@ export default async function SpectatorPage({
             </p>
           )}
         </div>
+
+        {/* Self-assign to a team (for unassigned participants in self_select mode) */}
+        {currentParticipantUnassigned &&
+          tournament.participant_type === "team" &&
+          tournament.team_mode === "self_select" &&
+          tournament.status === "registration" && (
+            <div className="mt-3">
+              <SelfAssignTeam
+                tournamentId={tournament.id}
+                inviteCode={tournament.invite_code}
+                teams={allTeamsWithCounts}
+                isAuthenticated={!!session}
+              />
+            </div>
+          )}
 
         {/* Bracket / matches */}
         {showMatches && (

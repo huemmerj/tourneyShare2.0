@@ -220,14 +220,19 @@
     "sign_in_for_teams": "Sign in to create or join a team.",
     "or_type_name": "or type your name",
     "members_one": "member",
-    "members_other": "members"
+    "members_other": "members",
+    "join_without_team_btn": "Join without a team",
+    "joining_without_team": "You'll join without a team — you can choose one later."
   },
   "spectator": {
     "your_matches": "Your matches are highlighted below.",
     "join_tournament": "Join tournament",
     "no_participants": "No participants yet.",
     "scores_hidden": "Scores are hidden until the tournament is completed.",
-    "bracket_pending": "The bracket will appear here once the tournament starts."
+    "bracket_pending": "The bracket will appear here once the tournament starts.",
+    "choose_team": "Choose a team",
+    "self_assign_team": "Select your team",
+    "self_assign_team_note": "You haven't chosen a team yet. Select one below to join."
   },
   "notifications": {
     "title": "Notifications",

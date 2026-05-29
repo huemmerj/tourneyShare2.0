@@ -4,7 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/components/locale-provider";
-import { createTeam, joinTeam, guestCreateTeam, guestJoinTeam } from "./team-actions";
+import {
+  createTeam,
+  joinTeam,
+  guestCreateTeam,
+  guestJoinTeam,
+  joinTournamentWithoutTeam,
+  guestJoinTournamentWithoutTeam,
+} from "./team-actions";
 
 type Team = {
   id: string;
@@ -13,7 +20,7 @@ type Team = {
   maxSize: number | null;
 };
 
-type Mode = "list" | "create" | "join-guest";
+type Mode = "list" | "create" | "join-guest" | "join-without-team-guest";
 
 function NamePicker({
   names,
@@ -133,6 +140,29 @@ export function TeamJoinSection({
     });
   }
 
+  function handleJoinWithoutTeam() {
+    setError("");
+    if (isAuthenticated) {
+      startTransition(async () => {
+        const result = await joinTournamentWithoutTeam(tournamentId);
+        if ("error" in result) setError(result.error);
+        else router.refresh();
+      });
+    } else if (allowAnonymous) {
+      setMode("join-without-team-guest");
+    }
+  }
+
+  function handleGuestJoinWithoutTeam() {
+    if (!displayName.trim()) return;
+    setError("");
+    startTransition(async () => {
+      const result = await guestJoinTournamentWithoutTeam(tournamentId, displayName);
+      if ("error" in result) setError(result.error);
+      else router.refresh();
+    });
+  }
+
   const showNamePicker = !isAuthenticated && allowAnonymous && presetNames.length > 0;
 
   // ── Guest: join existing team ──
@@ -167,6 +197,43 @@ export function TeamJoinSection({
             disabled={isPending || !displayName.trim()}
           >
             {isPending ? t("join.joining") : t("join.join_team_btn")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Guest: join without team ──
+  if (mode === "join-without-team-guest") {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">
+          {t("join.joining_without_team")}
+        </p>
+        {showNamePicker && (
+          <NamePicker names={presetNames} value={displayName} onChange={setDisplayName} selectLabel={t("join.select_name")} orTypeLabel={t("join.or_type_name")} />
+        )}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">{t("join.your_name")}</label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder={t("join.your_name_placeholder")}
+            className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={reset} disabled={isPending}>
+            {t("common.back")}
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={handleGuestJoinWithoutTeam}
+            disabled={isPending || !displayName.trim()}
+          >
+            {isPending ? t("join.joining") : t("join.join_without_team_btn")}
           </Button>
         </div>
       </div>
@@ -277,6 +344,19 @@ export function TeamJoinSection({
         <Button onClick={() => setMode("create")} disabled={isPending}>
           {t("join.create_team")}
         </Button>
+      )}
+
+      {(isAuthenticated || allowAnonymous) && (
+        <>
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">{t("common.or")}</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <Button variant="outline" onClick={handleJoinWithoutTeam} disabled={isPending}>
+            {t("join.join_without_team_btn")}
+          </Button>
+        </>
       )}
 
       {!isAuthenticated && !allowAnonymous && (

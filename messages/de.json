@@ -220,14 +220,19 @@
     "sign_in_for_teams": "Melde dich an, um ein Team zu erstellen oder beizutreten.",
     "or_type_name": "oder tippe deinen Namen",
     "members_one": "Mitglied",
-    "members_other": "Mitglieder"
+    "members_other": "Mitglieder",
+    "join_without_team_btn": "Ohne Team beitreten",
+    "joining_without_team": "Du trittst ohne Team bei — du kannst später eines wählen."
   },
   "spectator": {
     "your_matches": "Deine Spiele sind unten hervorgehoben.",
     "join_tournament": "Turnier beitreten",
     "no_participants": "Noch keine Teilnehmer.",
     "scores_hidden": "Ergebnisse werden erst nach Turnierende angezeigt.",
-    "bracket_pending": "Das Bracket erscheint hier, sobald das Turnier beginnt."
+    "bracket_pending": "Das Bracket erscheint hier, sobald das Turnier beginnt.",
+    "choose_team": "Team wählen",
+    "self_assign_team": "Wähle dein Team",
+    "self_assign_team_note": "Du hast noch kein Team gewählt. Wähle unten eines aus, um beizutreten."
   },
   "notifications": {
     "title": "Benachrichtigungen",
