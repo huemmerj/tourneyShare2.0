@@ -28,7 +28,7 @@ export default async function Home() {
   };
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-full flex-col overflow-x-hidden">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <span className="text-base font-semibold tracking-tight text-foreground">

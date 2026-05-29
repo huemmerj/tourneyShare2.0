@@ -133,11 +133,11 @@ export function MatchesView({
               return (
                 <div
                   key={m.id}
-                  className={`flex items-center justify-between gap-4 px-4 py-2.5 ${
+                  className={`flex min-w-0 items-center justify-between gap-2 px-4 py-2.5 ${
                     isMyMatch ? "bg-primary/5" : ""
                   }`}
                 >
-                  <div className="flex flex-1 flex-col gap-0.5">
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <MatchSide
                       name={nameA}
                       score={showScores ? m.score_a : null}
@@ -202,10 +202,10 @@ function MatchSide({
   youLabel?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-1.5">
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-1.5">
         <span
-          className={`text-sm ${
+          className={`truncate text-sm ${
             name === "TBD"
               ? "text-muted-foreground"
               : isWinner

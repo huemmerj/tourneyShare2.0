@@ -154,7 +154,7 @@ export default async function SpectatorPage({
   const showScores = tournament.results_visible || tournament.status === "completed";
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-full flex-col overflow-x-hidden">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link

@@ -113,8 +113,8 @@ export function ParticipantManager({
       {participants.length > 0 ? (
         <ul className="divide-y divide-border">
           {participants.map((p) => (
-            <li key={p.id} className="px-4 py-2.5 text-sm">
-              <div className="flex items-center justify-between gap-2">
+            <li key={p.id} className="min-w-0 px-4 py-2.5 text-sm">
+              <div className="flex min-w-0 items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate font-medium text-foreground">
                     {getDisplayName(p)}

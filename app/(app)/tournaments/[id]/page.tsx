@@ -153,7 +153,7 @@ export default async function TournamentPage({
           <h2 className="mb-2 text-sm font-semibold text-foreground">
             {dict.tournament.invite_link}
           </h2>
-          <p className="mb-3 break-all font-mono text-xs text-muted-foreground">
+          <p className="mb-3 break-all font-mono text-xs text-muted-foreground overflow-hidden">
             {inviteUrl}
           </p>
           <div className="flex gap-2">
