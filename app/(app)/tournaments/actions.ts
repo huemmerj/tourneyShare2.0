@@ -188,8 +188,8 @@ export async function generateGroupKnockoutPhase(
     .select("id, round_number, round_label, participant_a_id, participant_b_id, winner_id, status")
     .eq("tournament_id", id)
     .not("status", "eq", "bye")
-    .is("next_winner_match_id", null)
-    .is("next_loser_match_id", null);
+    .not("round_label", "is", null)
+    .ilike("round_label", "Group%");
 
   if (!groupMatches || groupMatches.length === 0)
     return { error: "Group stage matches not found" };

@@ -519,21 +519,23 @@ export function generateGroupStage(
   groupCount: number,
 ): MatchRow[] {
   const groups = snakeSeed(participants, groupCount);
-  const perGroup = Math.floor(participants.length / groupCount);
-  const roundsPerGroup = perGroup - 1;
+  let roundOffset = 1;
   const all: MatchRow[] = [];
 
   for (let g = 0; g < groupCount; g++) {
-    const offset = g * roundsPerGroup + 1;
+    const count = groups[g].length;
+    // Round robin generates count-1 rounds when even, count rounds when odd
+    const groupRounds = count % 2 === 0 ? count - 1 : count;
     const label = `Group ${g + 1}`;
     const matches = generateRoundRobinGroup(
       tournamentId,
       groups[g],
       label,
-      offset,
-      roundsPerGroup,
+      roundOffset,
+      groupRounds,
     );
     all.push(...matches);
+    roundOffset += groupRounds;
   }
 
   return all;
