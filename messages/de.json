@@ -121,6 +121,8 @@
     "lower_wins": "Niedrigere Punktzahl gewinnt",
     "team_mode": "Team-Zuweisung",
     "team_mode_self_select": "Spieler wählen selbst ihr Team",
+    "group_count": "Anzahl der Gruppen",
+    "advance_per_group": "Aufsteiger pro Gruppe",
     "team_mode_admin_assigned": "Admin weist Teams nach der Anmeldung zu",
     "create": "Turnier erstellen",
     "creating": "Erstellen…",

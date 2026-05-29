@@ -27,6 +27,8 @@ export default function NewTournamentPage() {
   const [disputeFlow, setDisputeFlow] = useState(false);
   const [scoringRule, setScoringRule] = useState<"higher_wins" | "lower_wins">("higher_wins");
   const [teamMode, setTeamMode] = useState<"self_select" | "admin_assigned">("self_select");
+  const [groupCount, setGroupCount] = useState("2");
+  const [advancePerGroup, setAdvancePerGroup] = useState("2");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +51,8 @@ export default function NewTournamentPage() {
       dispute_flow_enabled: disputeFlow,
       scoring_rule: scoringRule,
       team_mode: participantType === "team" ? teamMode : "self_select",
+      group_count: format === "group_knockout" ? parseInt(groupCount) : null,
+      advance_per_group: format === "group_knockout" ? parseInt(advancePerGroup) : null,
     });
 
     setLoading(false);
@@ -120,6 +124,30 @@ export default function NewTournamentPage() {
 <option value="group_knockout">{t("format.group_knockout")}</option>
             </select>
           </Field>
+          {format === "group_knockout" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("tournament.group_count")} required>
+                <input
+                  type="number"
+                  min={2}
+                  required
+                  value={groupCount}
+                  onChange={(e) => setGroupCount(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("tournament.advance_per_group")} required>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={advancePerGroup}
+                  onChange={(e) => setAdvancePerGroup(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+          )}
           <Field label={t("tournament.participant_type")} required>
             <select
               value={participantType}

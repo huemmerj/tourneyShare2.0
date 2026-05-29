@@ -108,6 +108,24 @@ export default async function TournamentPage({
 
   const matches = matchesRes.data ?? [];
 
+  // Compute group stage info for group_knockout format
+  const perGroup =
+    tournament.format === "group_knockout" && tournament.group_count
+      ? Math.floor(participantCount / tournament.group_count)
+      : 0;
+  const maxGroupRound =
+    tournament.format === "group_knockout" && tournament.group_count
+      ? tournament.group_count * (perGroup - 1)
+      : 0;
+  const groupStageDone =
+    maxGroupRound > 0 &&
+    matches.length > 0 &&
+    matches.filter((m) => m.round_number <= maxGroupRound).every(
+      (m) => m.status === "completed" || m.status === "bye",
+    );
+  const hasKnockout =
+    maxGroupRound > 0 && matches.some((m) => m.round_number > maxGroupRound);
+
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/join/${tournament.invite_code}`;
 
   return (
@@ -249,7 +267,7 @@ export default async function TournamentPage({
       )}
 
       {/* Group stage generation for group_knockout */}
-      {isOwner && tournament.format === "group_knockout" && tournament.status === "registration" && confirmedCount === 8 && matches.length === 0 && (
+      {isOwner && tournament.format === "group_knockout" && tournament.status === "registration" && tournament.group_count && confirmedCount >= tournament.group_count * 2 && matches.length === 0 && (
         <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
           <p className="mb-3 text-sm text-muted-foreground">
             {dict.tournament.ready_to_generate}
@@ -259,7 +277,7 @@ export default async function TournamentPage({
       )}
 
       {/* Knockout phase generation for group_knockout */}
-      {isOwner && tournament.format === "group_knockout" && tournament.status === "active" && matches.length > 0 && matches.every((m) => m.round_number >= 7 || m.status === "completed") && !matches.some((m) => m.round_number >= 7) && (
+      {isOwner && tournament.format === "group_knockout" && tournament.status === "active" && groupStageDone && !hasKnockout && (
         <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 mt-4">
           <p className="mb-3 text-sm text-muted-foreground">
             {dict.tournament.ready_for_knockout}

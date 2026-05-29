@@ -36,6 +36,8 @@ export type Tournament = {
   results_visible: boolean;
   scoring_rule: "higher_wins" | "lower_wins";
   team_mode: "self_select" | "admin_assigned";
+  group_count: number | null;
+  advance_per_group: number | null;
   created_at: string;
   updated_at: string;
 };

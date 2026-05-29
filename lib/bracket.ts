@@ -467,7 +467,6 @@ function generateRoundRobinGroup(
   totalRounds: number
 ): MatchRow[] {
   const list = [...groupParticipants.map((p) => p.id as string | null)];
-  // Circle method requires even count
   if (list.length % 2 !== 0) list.push(null);
 
   const m = list.length;
@@ -504,42 +503,147 @@ function generateRoundRobinGroup(
   return all;
 }
 
+function snakeSeed(participants: Participant[], groupCount: number): Participant[][] {
+  const sorted = sortedBySeeed(participants);
+  const groups: Participant[][] = Array.from({ length: groupCount }, () => []);
+  for (let i = 0; i < sorted.length; i++) {
+    const groupIndex = i % groupCount;
+    groups[groupIndex].push(sorted[i]);
+  }
+  return groups;
+}
+
 export function generateGroupStage(
   tournamentId: string,
-  participants: Participant[]
+  participants: Participant[],
+  groupCount: number,
 ): MatchRow[] {
-  const sorted = sortedBySeeed(participants);
-  if (sorted.length !== 8) throw new Error("Group knockout requires exactly 8 participants");
+  const groups = snakeSeed(participants, groupCount);
+  const perGroup = Math.floor(participants.length / groupCount);
+  const roundsPerGroup = perGroup - 1;
+  const all: MatchRow[] = [];
 
-  const groupA = [sorted[0], sorted[3], sorted[4], sorted[7]];
-  const groupB = [sorted[1], sorted[2], sorted[5], sorted[6]];
+  for (let g = 0; g < groupCount; g++) {
+    const offset = g * roundsPerGroup + 1;
+    const label = `Group ${g + 1}`;
+    const matches = generateRoundRobinGroup(
+      tournamentId,
+      groups[g],
+      label,
+      offset,
+      roundsPerGroup,
+    );
+    all.push(...matches);
+  }
 
-  const groupARounds = 3;
-  const aMatches = generateRoundRobinGroup(tournamentId, groupA, "Group A", 1, groupARounds);
-  const bMatches = generateRoundRobinGroup(tournamentId, groupB, "Group B", 4, groupARounds);
-
-  return [...aMatches, ...bMatches];
+  return all;
 }
 
 export function generateKnockoutMatches(
   tournamentId: string,
-  groupA: [string, string, string, string],
-  groupB: [string, string, string, string],
+  groups: string[][],
+  advancePerGroup: number,
 ): MatchRow[] {
-  const [a1, a2, a3, a4] = groupA;
-  const [b1, b2, b3, b4] = groupB;
+  const totalAdvancing = groups.length * advancePerGroup;
+  if (totalAdvancing === 0) return [];
 
-  const final = createMatch(tournamentId, 8, "Finals", 1);
-  const thirdPlace = createMatch(tournamentId, 8, "Finals", 2);
-  const fifthPlace = createMatch(tournamentId, 8, "Finals", 3);
-  const seventhPlace = createMatch(tournamentId, 8, "Finals", 4);
+  // Assign seeds: interleave groups so bracket is balanced
+  const qualifiers: { id: string; seed: number }[] = [];
+  for (let rank = 0; rank < advancePerGroup; rank++) {
+    for (let g = 0; g < groups.length; g++) {
+      const pid = groups[g][rank];
+      if (pid) {
+        qualifiers.push({ id: pid, seed: qualifiers.length + 1 });
+      }
+    }
+  }
 
-  const sf1 = createMatch(tournamentId, 7, "Semi-finals", 1, a1, b2, final.id, thirdPlace.id);
-  const sf2 = createMatch(tournamentId, 7, "Semi-finals", 2, b1, a2, final.id, thirdPlace.id);
-  const sf3 = createMatch(tournamentId, 7, "Semi-finals", 3, a3, b4, fifthPlace.id, seventhPlace.id);
-  const sf4 = createMatch(tournamentId, 7, "Semi-finals", 4, b3, a4, fifthPlace.id, seventhPlace.id);
+  return generateSingleElimFromIds(tournamentId, qualifiers);
+}
 
-  return [sf1, sf2, sf3, sf4, final, thirdPlace, fifthPlace, seventhPlace];
+function generateSingleElimFromIds(
+  tournamentId: string,
+  qualifiers: { id: string; seed: number }[],
+): MatchRow[] {
+  const n = qualifiers.length;
+  const size = nextPow2(n);
+  const totalRounds = Math.log2(size);
+  const slots = seedSlots(size);
+  const idBySlot = new Map<number, string | null>();
+  for (const q of qualifiers) {
+    idBySlot.set(q.seed, q.id);
+  }
+
+  const getP = (slot: number) => idBySlot.get(slot) ?? null;
+
+  const rounds: MatchRow[][] = [];
+
+  // Round 1
+  const r1: MatchRow[] = [];
+  for (let i = 0; i < slots.length; i += 2) {
+    const pA = getP(slots[i]);
+    const pB = getP(slots[i + 1]);
+    const bye = pA === null || pB === null;
+    r1.push({
+      id: uuid(),
+      tournament_id: tournamentId,
+      round_number: 1,
+      round_label: "Knockout · Round 1",
+      match_number: i / 2 + 1,
+      bracket: "winners",
+      participant_a_id: pA,
+      participant_b_id: pB,
+      status: bye ? "bye" : "scheduled",
+      winner_id: bye ? (pA ?? pB) : null,
+      next_winner_match_id: null,
+      next_loser_match_id: null,
+    });
+  }
+  rounds.push(r1);
+
+  // Future rounds
+  for (let round = 2; round <= totalRounds; round++) {
+    const count = Math.pow(2, totalRounds - round);
+    const rnd: MatchRow[] = [];
+    for (let i = 0; i < count; i++) {
+      rnd.push({
+        id: uuid(),
+        tournament_id: tournamentId,
+        round_number: round,
+        round_label: seLabel(round, totalRounds),
+        match_number: i + 1,
+        bracket: "winners",
+        participant_a_id: null,
+        participant_b_id: null,
+        status: "scheduled",
+        winner_id: null,
+        next_winner_match_id: null,
+        next_loser_match_id: null,
+      });
+    }
+    rounds.push(rnd);
+  }
+
+  // Link next_winner_match_id
+  for (let r = 0; r < rounds.length - 1; r++) {
+    for (let i = 0; i < rounds[r].length; i++) {
+      rounds[r][i].next_winner_match_id = rounds[r + 1][Math.floor(i / 2)].id;
+    }
+  }
+
+  // Propagate bye winners
+  if (rounds.length > 1) {
+    for (let i = 0; i < rounds[0].length; i++) {
+      const m = rounds[0][i];
+      if (m.status === "bye" && m.winner_id) {
+        const next = rounds[1][Math.floor(i / 2)];
+        if (i % 2 === 0) next.participant_a_id = m.winner_id;
+        else next.participant_b_id = m.winner_id;
+      }
+    }
+  }
+
+  return rounds.flat();
 }
 
 function createMatch(
@@ -573,7 +677,8 @@ function createMatch(
 export function generateBracket(
   format: "single_elimination" | "double_elimination" | "round_robin" | "swiss" | "group_knockout",
   tournamentId: string,
-  participants: Participant[]
+  participants: Participant[],
+  groupCount?: number,
 ): MatchRow[] {
   switch (format) {
     case "single_elimination":
@@ -585,6 +690,7 @@ export function generateBracket(
     case "swiss":
       return generateSwissRound(tournamentId, participants, 1);
     case "group_knockout":
-      return generateGroupStage(tournamentId, participants);
+      if (!groupCount) throw new Error("groupCount is required for group_knockout format");
+      return generateGroupStage(tournamentId, participants, groupCount);
   }
 }

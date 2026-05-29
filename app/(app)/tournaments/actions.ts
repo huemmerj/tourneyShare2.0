@@ -23,6 +23,8 @@ type TournamentInput = {
   dispute_flow_enabled: boolean;
   scoring_rule: "higher_wins" | "lower_wins";
   team_mode?: "self_select" | "admin_assigned";
+  group_count?: number | null;
+  advance_per_group?: number | null;
 };
 
 async function getSession() {
@@ -91,7 +93,7 @@ export async function generateTournamentBracket(
   // Load tournament (verify ownership + status)
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
-    .select("name, format, status, owner_id")
+    .select("name, format, status, owner_id, group_count")
     .eq("id", id)
     .single();
 
@@ -111,8 +113,11 @@ export async function generateTournamentBracket(
   if (!participants || participants.length < 2)
     return { error: "Need at least 2 confirmed participants" };
 
+  if (tournament.format === "group_knockout" && !tournament.group_count)
+    return { error: "Group count not set for group_knockout tournament" };
+
   // Generate match rows
-  const matches = generateBracket(tournament.format, id, participants);
+  const matches = generateBracket(tournament.format, id, participants, tournament.group_count ?? undefined);
 
   // Insert matches
   const { error: insertError } = await supabaseAdmin
@@ -152,7 +157,7 @@ export async function generateGroupKnockoutPhase(
 
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
-    .select("name, format, status, owner_id")
+    .select("name, format, status, owner_id, group_count, advance_per_group")
     .eq("id", id)
     .single();
 
@@ -161,49 +166,50 @@ export async function generateGroupKnockoutPhase(
   if (tournament.format !== "group_knockout") return { error: "Wrong tournament format" };
   if (tournament.status !== "active") return { error: "Tournament must be active" };
 
-  // Check knockout phase not already generated
-  const { data: existingKo } = await supabaseAdmin
-    .from("matches")
-    .select("id", { count: "exact", head: true })
-    .eq("tournament_id", id)
-    .gte("round_number", 7)
-    .limit(1);
-
-  if (existingKo && existingKo.length > 0) return { error: "Knockout phase already generated" };
+  const groupCount = tournament.group_count;
+  const advancePerGroup = tournament.advance_per_group;
+  if (!groupCount || !advancePerGroup) return { error: "Group configuration not set" };
 
   // Load all group stage matches
   const { data: groupMatches } = await supabaseAdmin
     .from("matches")
     .select("id, round_number, round_label, participant_a_id, participant_b_id, winner_id, status")
     .eq("tournament_id", id)
-    .lte("round_number", 6)
-    .not("status", "eq", "bye");
+    .not("status", "eq", "bye")
+    .is("next_winner_match_id", null)
+    .is("next_loser_match_id", null);
 
-  if (!groupMatches || groupMatches.length < 12)
+  if (!groupMatches || groupMatches.length === 0)
     return { error: "Group stage matches not found" };
 
   const allMatches = groupMatches;
   const allCompleted = allMatches.every((m) => m.status === "completed");
   if (!allCompleted) return { error: "All group stage matches must be completed first" };
 
-  // Determine which participants are in which group based on round_label
-  const groupAMatches = allMatches.filter((m) => m.round_label?.startsWith("Group A"));
-  const groupBMatches = allMatches.filter((m) => m.round_label?.startsWith("Group B"));
+  // Group matches by round_label prefix (e.g. "Group 1", "Group 2")
+  const groupMap = new Map<string, typeof allMatches>();
+  for (const m of allMatches) {
+    const prefix = m.round_label?.split(" ·")[0];
+    if (!prefix) continue;
+    if (!groupMap.has(prefix)) groupMap.set(prefix, []);
+    groupMap.get(prefix)!.push(m);
+  }
 
-  // Compute standings
+  if (groupMap.size !== groupCount)
+    return { error: `Expected ${groupCount} groups, found ${groupMap.size}` };
+
+  // Compute standings per group
   type GroupMatch = (typeof allMatches)[number];
 
   function computeStandings(matches: GroupMatch[]): string[] {
     const wins = new Map<string, number>();
     const seen = new Set<string>();
-
     for (const m of matches) {
       if (!m.winner_id) continue;
       wins.set(m.winner_id, (wins.get(m.winner_id) ?? 0) + 1);
       if (m.participant_a_id) seen.add(m.participant_a_id);
       if (m.participant_b_id) seen.add(m.participant_b_id);
     }
-
     return [...seen].sort((a, b) => {
       const wA = wins.get(a) ?? 0;
       const wB = wins.get(b) ?? 0;
@@ -212,23 +218,27 @@ export async function generateGroupKnockoutPhase(
     });
   }
 
-  const groupARanked = computeStandings(groupAMatches);
-  const groupBRanked = computeStandings(groupBMatches);
+  const allParticipantIds = new Set<string>();
+  const groupRankings: string[][] = [];
 
-  if (groupARanked.length !== 4 || groupBRanked.length !== 4)
-    return { error: "Each group must have exactly 4 participants" };
+  for (const [, matches] of groupMap) {
+    const ranked = computeStandings(matches);
+    for (const pid of ranked) allParticipantIds.add(pid);
+    groupRankings.push(ranked);
+  }
 
-  // Load seeds for tiebreaker if needed
+  // Load seeds for tiebreaker
   const { data: participantsData } = await supabaseAdmin
     .from("participants")
     .select("id, seed")
     .eq("tournament_id", id)
-    .in("id", [...groupARanked, ...groupBRanked]);
+    .in("id", [...allParticipantIds]);
 
   const seedMap = new Map((participantsData ?? []).map((p) => [p.id, p.seed]));
 
-  function rankByWinsThenSeed(ranked: string[]): [string, string, string, string] {
-    const sorted = [...ranked].sort((a, b) => {
+  // Rank each group by wins desc, then seed asc
+  function rankByWinsThenSeed(ranked: string[]): string[] {
+    return [...ranked].sort((a, b) => {
       const winsA = allMatches.filter((m) => m.winner_id === a).length;
       const winsB = allMatches.filter((m) => m.winner_id === b).length;
       if (winsB !== winsA) return winsB - winsA;
@@ -236,13 +246,24 @@ export async function generateGroupKnockoutPhase(
       const seedB = seedMap.get(b) ?? 999;
       return seedA - seedB;
     });
-    return [sorted[0]!, sorted[1]!, sorted[2]!, sorted[3]!];
   }
 
-  const aRanked = rankByWinsThenSeed(groupARanked);
-  const bRanked = rankByWinsThenSeed(groupBRanked);
+  const finalRankings = groupRankings.map(rankByWinsThenSeed);
 
-  const knockoutMatches = generateKnockoutMatches(id, aRanked, bRanked);
+  // Verify each group has enough participants for advance_per_group
+  for (let g = 0; g < finalRankings.length; g++) {
+    if (finalRankings[g].length < advancePerGroup) {
+      return { error: `Group ${g + 1} has only ${finalRankings[g].length} participants, need ${advancePerGroup}` };
+    }
+  }
+
+  const knockoutMatches = generateKnockoutMatches(id, finalRankings, advancePerGroup);
+
+  // Offset knockout round numbers past all group rounds
+  const maxGroupRound = Math.max(...allMatches.map((m) => m.round_number));
+  for (const m of knockoutMatches) {
+    m.round_number += maxGroupRound;
+  }
 
   const { error: insertError } = await supabaseAdmin
     .from("matches")

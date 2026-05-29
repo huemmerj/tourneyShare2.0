@@ -121,6 +121,8 @@
     "lower_wins": "Lower score wins",
     "team_mode": "Team assignment",
     "team_mode_self_select": "Players choose their own teams",
+    "group_count": "Number of groups",
+    "advance_per_group": "Advance per group",
     "team_mode_admin_assigned": "Admin assigns teams after registration",
     "create": "Create tournament",
     "creating": "Creating…",
