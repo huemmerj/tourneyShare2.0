@@ -8,6 +8,7 @@ import { TournamentActions, CopyButton } from "./tournament-actions";
 import { GenerateBracketButton } from "./generate-bracket-button";
 import { MatchesView } from "./matches-view";
 import { ParticipantManager } from "./participant-manager";
+import { QRCodeDialog } from "./qr-code-dialog";
 import type { Tournament } from "@/lib/types";
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -166,7 +167,10 @@ export default async function TournamentPage({
           <p className="mb-3 break-all font-mono text-xs text-muted-foreground">
             {inviteUrl}
           </p>
-          <CopyButton text={inviteUrl} />
+          <div className="flex gap-2">
+            <CopyButton text={inviteUrl} />
+            <QRCodeDialog url={inviteUrl} />
+          </div>
         </div>
 
         {/* Details */}
