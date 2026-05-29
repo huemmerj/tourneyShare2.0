@@ -22,17 +22,20 @@ type ParticipantWithName = Participant & {
   display_name?: string | null;
 };
 
+type Labels = { tbd: string; bye: string; you: string; losers: string; grand_final: string };
+
 function getDisplayName(
   participantId: string | null,
-  participantsMap: Map<string, ParticipantWithName>
+  participantsMap: Map<string, ParticipantWithName>,
+  tbd: string
 ): string {
-  if (!participantId) return "TBD";
+  if (!participantId) return tbd;
   const p = participantsMap.get(participantId);
-  if (!p) return "Unknown";
+  if (!p) return tbd;
   if (p.team) return p.team.name;
   if (p.guest) return p.guest.display_name;
   if (p.user) return p.user.name || p.user.email;
-  return p.display_name ?? "Participant";
+  return p.display_name ?? tbd;
 }
 
 const BRACKET_ORDER = { winners: 0, losers: 1, grand_final: 2 } as const;
@@ -44,6 +47,7 @@ export function MatchesView({
   currentParticipantId = null,
   showScores = true,
   scoringRule = "higher_wins",
+  labels = {},
 }: {
   matches: Match[];
   participants: ParticipantWithName[];
@@ -51,7 +55,16 @@ export function MatchesView({
   currentParticipantId?: string | null;
   showScores?: boolean;
   scoringRule?: "higher_wins" | "lower_wins";
+  labels?: Partial<Labels>;
 }) {
+  const L: Labels = {
+    tbd: labels.tbd ?? "TBD",
+    bye: labels.bye ?? "Bye",
+    you: labels.you ?? "You",
+    losers: labels.losers ?? "Losers",
+    grand_final: labels.grand_final ?? "Grand Final",
+  };
+
   const pMap = new Map(participants.map((p) => [p.id, p]));
 
   type Group = { bracket: string; round: number; label: string; matches: Match[] };
@@ -89,16 +102,16 @@ export function MatchesView({
             <h3 className="text-sm font-semibold text-foreground">
               {group.bracket === "losers" && (
                 <span className="mr-2 text-xs text-muted-foreground uppercase tracking-wide">
-                  Losers ·{" "}
+                  {L.losers} ·{" "}
                 </span>
               )}
-              {group.bracket === "grand_final" ? "Grand Final" : group.label}
+              {group.bracket === "grand_final" ? L.grand_final : group.label}
             </h3>
           </div>
           <div className="divide-y divide-border">
             {group.matches.map((m) => {
-              const nameA = getDisplayName(m.participant_a_id, pMap);
-              const nameB = getDisplayName(m.participant_b_id, pMap);
+              const nameA = getDisplayName(m.participant_a_id, pMap, L.tbd);
+              const nameB = getDisplayName(m.participant_b_id, pMap, L.tbd);
               const isBye = m.status === "bye";
               const isCompleted = m.status === "completed";
 
@@ -130,6 +143,7 @@ export function MatchesView({
                       score={showScores ? m.score_a : null}
                       isWinner={isCompleted && m.winner_id === m.participant_a_id}
                       isCurrentUser={isCurrentA}
+                      youLabel={L.you}
                     />
                     {!isBye && (
                       <MatchSide
@@ -137,6 +151,7 @@ export function MatchesView({
                         score={showScores ? m.score_b : null}
                         isWinner={isCompleted && m.winner_id === m.participant_b_id}
                         isCurrentUser={isCurrentB}
+                        youLabel={L.you}
                       />
                     )}
                   </div>
@@ -160,7 +175,7 @@ export function MatchesView({
                             : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {isBye ? "Bye" : m.status}
+                      {isBye ? L.bye : m.status}
                     </span>
                   </div>
                 </div>
@@ -178,11 +193,13 @@ function MatchSide({
   score,
   isWinner,
   isCurrentUser,
+  youLabel,
 }: {
   name: string;
   score: number | null;
   isWinner: boolean;
   isCurrentUser: boolean;
+  youLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -198,9 +215,9 @@ function MatchSide({
         >
           {name}
         </span>
-        {isCurrentUser && (
+        {isCurrentUser && youLabel && (
           <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-            You
+            {youLabel}
           </span>
         )}
       </div>

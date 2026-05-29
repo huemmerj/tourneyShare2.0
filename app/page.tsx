@@ -1,13 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { supabaseAdmin } from "@/lib/supabase/server";
-
-const FORMAT_LABELS: Record<string, string> = {
-  single_elimination: "Single Elim",
-  double_elimination: "Double Elim",
-  round_robin: "Round Robin",
-  swiss: "Swiss",
-};
+import { getLocale, getDictionary } from "@/lib/i18n";
 
 const STATUS_COLORS: Record<string, string> = {
   registration: "bg-primary/10 text-primary",
@@ -16,6 +10,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default async function Home() {
+  const locale = await getLocale();
+  const dict = await getDictionary(locale);
+
   const { data: tournaments } = await supabaseAdmin
     .from("tournaments")
     .select("id, name, format, status, participant_type, invite_code, description")
@@ -24,19 +21,25 @@ export default async function Home() {
     .order("created_at", { ascending: false })
     .limit(12);
 
+  const statusLabel = (status: string) => {
+    if (status === "registration") return dict.home.status_open;
+    if (status === "active") return dict.home.status_live;
+    return dict.home.status_ended;
+  };
+
   return (
     <div className="flex min-h-full flex-col">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <span className="text-base font-semibold tracking-tight text-foreground">
-            TourneyShare
+            {dict.brand}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/sign-in">Sign in</Link>
+              <Link href="/sign-in">{dict.nav.sign_in}</Link>
             </Button>
             <Button size="sm" asChild>
-              <Link href="/sign-up">Get started</Link>
+              <Link href="/sign-up">{dict.nav.get_started}</Link>
             </Button>
           </div>
         </div>
@@ -46,18 +49,17 @@ export default async function Home() {
         {/* Hero */}
         <section className="flex flex-col items-center py-20 text-center">
           <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-            Run tournaments, share brackets
+            {dict.home.headline}
           </h1>
           <p className="mt-4 max-w-md text-lg text-muted-foreground">
-            Single elimination, double elimination, round robin, Swiss — create
-            and manage any format in minutes.
+            {dict.home.subline}
           </p>
           <div className="mt-8 flex gap-3">
             <Button size="lg" asChild>
-              <Link href="/sign-up">Create a tournament</Link>
+              <Link href="/sign-up">{dict.home.create_cta}</Link>
             </Button>
             <Button variant="outline" size="lg" asChild>
-              <Link href="/sign-in">Sign in</Link>
+              <Link href="/sign-in">{dict.nav.sign_in}</Link>
             </Button>
           </div>
         </section>
@@ -66,7 +68,7 @@ export default async function Home() {
         {tournaments && tournaments.length > 0 && (
           <section className="pb-16">
             <h2 className="mb-4 text-lg font-semibold text-foreground">
-              Public tournaments
+              {dict.home.public_title}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {tournaments.map((t) => (
@@ -79,14 +81,10 @@ export default async function Home() {
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[t.status] ?? "bg-muted text-muted-foreground"}`}
                     >
-                      {t.status === "registration"
-                        ? "Open"
-                        : t.status === "active"
-                          ? "Live"
-                          : "Ended"}
+                      {statusLabel(t.status)}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {FORMAT_LABELS[t.format] ?? t.format}
+                      {dict.format[`${t.format}_short` as keyof typeof dict.format] ?? dict.format[t.format as keyof typeof dict.format] ?? t.format}
                     </span>
                   </div>
                   <p className="font-medium text-foreground group-hover:underline">

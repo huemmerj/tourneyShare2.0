@@ -8,14 +8,8 @@ import { JoinButton } from "./join-button";
 import { GuestJoinForm } from "./guest-join-form";
 import { ClaimSlotForm } from "./claim-slot-form";
 import { TeamJoinSection } from "./team-join-section";
+import { getLocale, getDictionary } from "@/lib/i18n";
 import type { Tournament } from "@/lib/types";
-
-const FORMAT_LABELS: Record<string, string> = {
-  single_elimination: "Single Elimination",
-  double_elimination: "Double Elimination",
-  round_robin: "Round Robin",
-  swiss: "Swiss",
-};
 
 export default async function JoinPage({
   params,
@@ -31,6 +25,9 @@ export default async function JoinPage({
     .single<Tournament>();
 
   if (!tournament) notFound();
+
+  const locale = await getLocale();
+  const dict = await getDictionary(locale);
 
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -161,7 +158,7 @@ export default async function JoinPage({
 
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{FORMAT_LABELS[tournament.format]}</span>
+            <span>{dict.format[tournament.format as keyof typeof dict.format]}</span>
             <span>·</span>
             <span className="capitalize">{tournament.participant_type}</span>
           </div>
@@ -179,21 +176,19 @@ export default async function JoinPage({
           {alreadyJoined ? (
             <div className="flex flex-col items-center gap-3">
               <p className="text-center text-sm font-medium text-success">
-                You&apos;re registered for this tournament!
+                {dict.join.registered}
               </p>
               <Button asChild className="w-full">
-                <Link href={`/t/${code}`}>View bracket</Link>
+                <Link href={`/t/${code}`}>{dict.join.view_bracket}</Link>
               </Button>
             </div>
           ) : !registrationOpen ? (
             <p className="text-center text-sm text-muted-foreground">
-              {tournament.status === "draft"
-                ? "Registration is not open yet."
-                : "Registration is closed."}
+              {tournament.status === "draft" ? dict.join.not_open_yet : dict.join.closed}
             </p>
           ) : isFull ? (
             <p className="text-center text-sm text-muted-foreground">
-              This tournament is full.
+              {dict.join.full}
             </p>
           ) : tournament.participant_type === "team" ? (
             <TeamJoinSection
@@ -214,7 +209,7 @@ export default async function JoinPage({
               />
               <div className="flex items-center gap-2">
                 <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-muted-foreground">not on the list?</span>
+                <span className="text-xs text-muted-foreground">{dict.join.not_on_list}</span>
                 <div className="h-px flex-1 bg-border" />
               </div>
               {session ? (
@@ -223,12 +218,12 @@ export default async function JoinPage({
                 <div className="flex flex-col gap-3">
                   <GuestJoinForm tournamentId={tournament.id} />
                   <Button variant="outline" asChild className="w-full">
-                    <Link href={`/sign-in?next=/join/${code}`}>Sign in to join</Link>
+                    <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
                   </Button>
                 </div>
               ) : (
                 <Button variant="outline" asChild className="w-full">
-                  <Link href={`/sign-in?next=/join/${code}`}>Sign in to join</Link>
+                  <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
                 </Button>
               )}
             </div>
@@ -239,16 +234,16 @@ export default async function JoinPage({
               <GuestJoinForm tournamentId={tournament.id} />
               <div className="flex items-center gap-2">
                 <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-muted-foreground">or</span>
+                <span className="text-xs text-muted-foreground">{dict.common.or}</span>
                 <div className="h-px flex-1 bg-border" />
               </div>
               <Button variant="outline" asChild className="w-full">
-                <Link href={`/sign-in?next=/join/${code}`}>Sign in to join</Link>
+                <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
               </Button>
             </div>
           ) : (
             <Button asChild className="w-full">
-              <Link href={`/sign-in?next=/join/${code}`}>Sign in to join</Link>
+              <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
             </Button>
           )}
         </div>

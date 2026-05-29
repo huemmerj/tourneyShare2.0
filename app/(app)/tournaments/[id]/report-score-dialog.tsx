@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/components/locale-provider";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ export function ReportScoreDialog({
   participantBId,
   scoringRule = "higher_wins",
 }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [scoreA, setScoreA] = useState("");
   const [scoreB, setScoreB] = useState("");
@@ -84,12 +86,12 @@ export function ReportScoreDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          Report
+          {t("matches.report")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Report result</DialogTitle>
+          <DialogTitle>{t("matches.report_title")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handle} className="flex flex-col gap-4 pt-2">
           <div className="grid grid-cols-2 gap-3">
@@ -118,7 +120,7 @@ export function ReportScoreDialog({
           </div>
 
           <fieldset className="flex flex-col gap-1.5">
-            <legend className="text-sm font-medium text-foreground">Winner</legend>
+            <legend className="text-sm font-medium text-foreground">{t("matches.winner")}</legend>
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="radio"
@@ -141,7 +143,9 @@ export function ReportScoreDialog({
             </label>
             {winner && (
               <p className="text-xs text-muted-foreground">
-                Auto-selected based on {scoringRule === "higher_wins" ? "higher" : "lower"} score wins
+                {scoringRule === "higher_wins"
+                  ? t("matches.auto_selected_higher")
+                  : t("matches.auto_selected_lower")}
               </p>
             )}
           </fieldset>
@@ -149,7 +153,7 @@ export function ReportScoreDialog({
           {error && <p className="text-xs text-destructive">{error}</p>}
 
           <Button type="submit" disabled={loading}>
-            {loading ? "Saving…" : "Save result"}
+            {loading ? t("matches.save_result") : t("matches.save_result_submit")}
           </Button>
         </form>
       </DialogContent>

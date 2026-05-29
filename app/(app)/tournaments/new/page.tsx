@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createTournament } from "../actions";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/locale-provider";
 import type { TournamentFormat, ParticipantType } from "@/lib/types";
 
 export default function NewTournamentPage() {
   const router = useRouter();
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -59,40 +61,40 @@ export default function NewTournamentPage() {
   return (
     <div className="max-w-2xl">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight text-foreground">
-        New tournament
+        {t("tournament.new_title")}
       </h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-8">
         {/* Basics */}
         <section className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Basics
+            {t("tournament.basics")}
           </h2>
-          <Field label="Name" required>
+          <Field label={t("tournament.name")} required>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Summer Championship 2026"
+              placeholder={t("tournament.name_placeholder")}
               className={inputCls}
             />
           </Field>
-          <Field label="Description">
+          <Field label={t("tournament.description")}>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional details about the tournament…"
+              placeholder={t("tournament.description_placeholder")}
               rows={3}
               className={`${inputCls} h-auto resize-none py-2`}
             />
           </Field>
-          <Field label="Sport / game type">
+          <Field label={t("tournament.sport_type")}>
             <input
               type="text"
               value={sportType}
               onChange={(e) => setSportType(e.target.value)}
-              placeholder="e.g. Tennis, Chess, Rocket League"
+              placeholder={t("tournament.sport_type_placeholder")}
               className={inputCls}
             />
           </Field>
@@ -101,50 +103,48 @@ export default function NewTournamentPage() {
         {/* Format */}
         <section className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Format & participants
+            {t("tournament.format_section")}
           </h2>
-          <Field label="Format" required>
+          <Field label={t("tournament.format")} required>
             <select
               value={format}
               onChange={(e) => setFormat(e.target.value as TournamentFormat)}
               className={inputCls}
             >
-              <option value="single_elimination">Single Elimination</option>
-              <option value="double_elimination">Double Elimination</option>
-              <option value="round_robin">Round Robin</option>
-              <option value="swiss">Swiss</option>
+              <option value="single_elimination">{t("format.single_elimination")}</option>
+              <option value="double_elimination">{t("format.double_elimination")}</option>
+              <option value="round_robin">{t("format.round_robin")}</option>
+              <option value="swiss">{t("format.swiss")}</option>
             </select>
           </Field>
-          <Field label="Participant type" required>
+          <Field label={t("tournament.participant_type")} required>
             <select
               value={participantType}
-              onChange={(e) =>
-                setParticipantType(e.target.value as ParticipantType)
-              }
+              onChange={(e) => setParticipantType(e.target.value as ParticipantType)}
               className={inputCls}
             >
-              <option value="solo">Solo (individuals)</option>
-              <option value="team">Team</option>
+              <option value="solo">{t("tournament.solo")}</option>
+              <option value="team">{t("tournament.team")}</option>
             </select>
           </Field>
-          <Field label="Max participants">
+          <Field label={t("tournament.max_participants")}>
             <input
               type="number"
               min={2}
               value={maxParticipants}
               onChange={(e) => setMaxParticipants(e.target.value)}
-              placeholder="No limit"
+              placeholder={t("common.no_limit")}
               className={inputCls}
             />
           </Field>
           {participantType === "team" && (
-            <Field label="Max team size">
+            <Field label={t("tournament.max_team_size")}>
               <input
                 type="number"
                 min={1}
                 value={maxTeamSize}
                 onChange={(e) => setMaxTeamSize(e.target.value)}
-                placeholder="No limit"
+                placeholder={t("common.no_limit")}
                 className={inputCls}
               />
             </Field>
@@ -154,10 +154,10 @@ export default function NewTournamentPage() {
         {/* Schedule */}
         <section className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Schedule
+            {t("tournament.schedule")}
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Start date">
+            <Field label={t("tournament.start_date")}>
               <input
                 type="datetime-local"
                 value={startDate}
@@ -165,7 +165,7 @@ export default function NewTournamentPage() {
                 className={inputCls}
               />
             </Field>
-            <Field label="End date">
+            <Field label={t("tournament.end_date")}>
               <input
                 type="datetime-local"
                 value={endDate}
@@ -179,34 +179,34 @@ export default function NewTournamentPage() {
         {/* Settings */}
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Settings
+            {t("tournament.settings")}
           </h2>
           <Toggle
             checked={isPublic}
             onChange={setIsPublic}
-            label="Public tournament"
-            description="Visible in the discovery feed"
+            label={t("tournament.is_public")}
+            description={t("tournament.is_public_desc")}
           />
           <Toggle
             checked={allowAnonymous}
             onChange={setAllowAnonymous}
-            label="Allow anonymous join"
-            description="Participants can join without an account via the invite link"
+            label={t("tournament.allow_anonymous")}
+            description={t("tournament.allow_anonymous_desc")}
           />
           <Toggle
             checked={disputeFlow}
             onChange={setDisputeFlow}
-            label="Enable dispute flow"
-            description="Participants must confirm scores before they are accepted"
+            label={t("tournament.dispute_flow")}
+            description={t("tournament.dispute_flow_desc")}
           />
-          <Field label="Scoring rule">
+          <Field label={t("tournament.scoring_rule")}>
             <select
               value={scoringRule}
               onChange={(e) => setScoringRule(e.target.value as "higher_wins" | "lower_wins")}
               className={inputCls}
             >
-              <option value="higher_wins">Higher score wins</option>
-              <option value="lower_wins">Lower score wins</option>
+              <option value="higher_wins">{t("tournament.higher_wins")}</option>
+              <option value="lower_wins">{t("tournament.lower_wins")}</option>
             </select>
           </Field>
         </section>
@@ -215,14 +215,14 @@ export default function NewTournamentPage() {
 
         <div className="flex gap-3">
           <Button type="submit" disabled={loading}>
-            {loading ? "Creating…" : "Create tournament"}
+            {loading ? t("tournament.creating") : t("tournament.create")}
           </Button>
           <Button
             type="button"
             variant="ghost"
             onClick={() => router.push("/dashboard")}
           >
-            Cancel
+            {t("tournament.cancel")}
           </Button>
         </div>
       </form>

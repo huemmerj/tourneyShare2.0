@@ -5,22 +5,8 @@ import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { MatchesView } from "@/app/(app)/tournaments/[id]/matches-view";
+import { getLocale, getDictionary } from "@/lib/i18n";
 import type { Tournament } from "@/lib/types";
-
-const FORMAT_LABELS: Record<string, string> = {
-  single_elimination: "Single Elimination",
-  double_elimination: "Double Elimination",
-  round_robin: "Round Robin",
-  swiss: "Swiss",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  registration: "Registration open",
-  active: "Active",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -44,6 +30,9 @@ export default async function SpectatorPage({
     .single<Tournament>();
 
   if (!tournament) notFound();
+
+  const locale = await getLocale();
+  const dict = await getDictionary(locale);
 
   // Identify viewer: logged-in user or guest via cookie
   const session = await auth.api.getSession({ headers: await headers() });
@@ -178,10 +167,10 @@ export default async function SpectatorPage({
             {session ? null : (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <Link href="/sign-in">Sign in</Link>
+                  <Link href="/sign-in">{dict.nav.sign_in}</Link>
                 </Button>
                 <Button size="sm" asChild>
-                  <Link href="/sign-up">Get started</Link>
+                  <Link href="/sign-up">{dict.nav.get_started}</Link>
                 </Button>
               </>
             )}
@@ -196,10 +185,10 @@ export default async function SpectatorPage({
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[tournament.status]}`}
             >
-              {STATUS_LABELS[tournament.status]}
+              {dict.status[tournament.status as keyof typeof dict.status]}
             </span>
             <span className="text-xs text-muted-foreground">
-              {FORMAT_LABELS[tournament.format]}
+              {dict.format[tournament.format as keyof typeof dict.format]}
             </span>
             <span className="text-xs text-muted-foreground">·</span>
             <span className="text-xs text-muted-foreground capitalize">
@@ -216,13 +205,13 @@ export default async function SpectatorPage({
           )}
           {currentParticipantId && (
             <p className="mt-2 text-sm text-primary font-medium">
-              Your matches are highlighted below.
+              {dict.spectator.your_matches}
             </p>
           )}
           {!currentParticipantId && tournament.status === "registration" && (
             <div className="mt-3">
               <Button asChild>
-                <Link href={`/join/${tournament.invite_code}`}>Join tournament</Link>
+                <Link href={`/join/${tournament.invite_code}`}>{dict.spectator.join_tournament}</Link>
               </Button>
             </div>
           )}
@@ -232,7 +221,7 @@ export default async function SpectatorPage({
         <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-sm font-semibold text-foreground">
-              Participants{" "}
+              {dict.participants.title}{" "}
               <span className="text-muted-foreground">({participantCount})</span>
             </h2>
           </div>
@@ -256,7 +245,7 @@ export default async function SpectatorPage({
                         <span className="text-foreground">{displayName}</span>
                         {isMe && (
                           <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                            You
+                            {dict.matches.you}
                           </span>
                         )}
                       </div>
@@ -289,7 +278,7 @@ export default async function SpectatorPage({
             </ul>
           ) : (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No participants yet.
+              {dict.spectator.no_participants}
             </p>
           )}
         </div>
@@ -299,7 +288,7 @@ export default async function SpectatorPage({
           <>
             {!showScores && (
               <p className="mt-4 text-center text-xs text-muted-foreground">
-                Scores are hidden until the tournament is completed.
+                {dict.spectator.scores_hidden}
               </p>
             )}
             <MatchesView
@@ -308,6 +297,13 @@ export default async function SpectatorPage({
               isOwner={false}
               currentParticipantId={currentParticipantId}
               showScores={showScores}
+              labels={{
+                tbd: dict.matches.tbd,
+                bye: dict.matches.bye,
+                you: dict.matches.you,
+                losers: dict.matches.losers,
+                grand_final: dict.matches.grand_final,
+              }}
             />
           </>
         )}
@@ -315,7 +311,7 @@ export default async function SpectatorPage({
         {!showMatches && tournament.status === "registration" && (
           <div className="mt-4 rounded-xl border border-border bg-card px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">
-              The bracket will appear here once the tournament starts.
+              {dict.spectator.bracket_pending}
             </p>
           </div>
         )}

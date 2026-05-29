@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { setTournamentStatus, deleteTournament } from "../actions";
+import { useT } from "@/components/locale-provider";
 import type { Tournament } from "@/lib/types";
 
 const NEXT_STATUS: Partial<Record<Tournament["status"], Tournament["status"]>> = {
@@ -12,16 +13,17 @@ const NEXT_STATUS: Partial<Record<Tournament["status"], Tournament["status"]>> =
   active: "completed",
 };
 
-const NEXT_STATUS_LABEL: Partial<Record<Tournament["status"], string>> = {
-  draft: "Open registrations",
-  registration: "Start tournament",
-  active: "Mark completed",
-};
-
 export function TournamentActions({ tournament }: { tournament: Tournament }) {
   const router = useRouter();
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const NEXT_STATUS_LABEL: Partial<Record<Tournament["status"], string>> = {
+    draft: t("tournament.open_registrations"),
+    registration: t("tournament.start_tournament"),
+    active: t("tournament.mark_completed"),
+  };
 
   const nextStatus = NEXT_STATUS[tournament.status];
   const nextLabel = NEXT_STATUS_LABEL[tournament.status];
@@ -57,7 +59,7 @@ export function TournamentActions({ tournament }: { tournament: Tournament }) {
         onClick={handleDelete}
         disabled={loading}
       >
-        {confirmDelete ? "Confirm delete" : "Delete"}
+        {confirmDelete ? t("tournament.confirm_delete") : t("tournament.delete")}
       </Button>
       {confirmDelete && (
         <Button
@@ -65,7 +67,7 @@ export function TournamentActions({ tournament }: { tournament: Tournament }) {
           variant="ghost"
           onClick={() => setConfirmDelete(false)}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
       )}
     </div>
@@ -73,6 +75,7 @@ export function TournamentActions({ tournament }: { tournament: Tournament }) {
 }
 
 export function CopyButton({ text }: { text: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
@@ -86,7 +89,7 @@ export function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       className="text-xs font-medium text-primary underline-offset-4 hover:underline"
     >
-      {copied ? "Copied!" : "Copy link"}
+      {copied ? t("tournament.copied") : t("tournament.copy_link")}
     </button>
   );
 }

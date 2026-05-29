@@ -3,14 +3,8 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { getLocale, getDictionary } from "@/lib/i18n";
 import type { Tournament } from "@/lib/types";
-
-const FORMAT_LABELS: Record<string, string> = {
-  single_elimination: "Single Elim.",
-  double_elimination: "Double Elim.",
-  round_robin: "Round Robin",
-  swiss: "Swiss",
-};
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -20,16 +14,10 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-destructive/10 text-destructive",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  registration: "Registration",
-  active: "Active",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
-
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });
+  const locale = await getLocale();
+  const dict = await getDictionary(locale);
 
   const { data: tournaments } = await supabaseAdmin
     .from("tournaments")
@@ -38,21 +26,24 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .returns<Tournament[]>();
 
+  const count = tournaments?.length ?? 0;
+  const countLabel = count === 0
+    ? dict.dashboard.none_yet
+    : count === 1
+      ? dict.dashboard.tournament_count_one
+      : dict.dashboard.tournament_count_other.replace("{{count}}", String(count));
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            My tournaments
+            {dict.dashboard.title}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {tournaments?.length
-              ? `${tournaments.length} tournament${tournaments.length !== 1 ? "s" : ""}`
-              : "No tournaments yet"}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{countLabel}</p>
         </div>
         <Button asChild>
-          <Link href="/tournaments/new">New tournament</Link>
+          <Link href="/tournaments/new">{dict.dashboard.new}</Link>
         </Button>
       </div>
 
@@ -68,10 +59,10 @@ export default async function DashboardPage() {
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[t.status]}`}
                 >
-                  {STATUS_LABELS[t.status]}
+                  {dict.status[t.status as keyof typeof dict.status]}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {FORMAT_LABELS[t.format]}
+                  {dict.format[`${t.format}_short` as keyof typeof dict.format] ?? dict.format[t.format as keyof typeof dict.format]}
                 </span>
               </div>
               <h2 className="mb-1 font-semibold text-foreground group-hover:text-primary">
@@ -88,9 +79,7 @@ export default async function DashboardPage() {
                   <span>· max {t.max_participants}</span>
                 )}
                 {t.start_date && (
-                  <span>
-                    · {new Date(t.start_date).toLocaleDateString()}
-                  </span>
+                  <span>· {new Date(t.start_date).toLocaleDateString()}</span>
                 )}
               </div>
             </Link>
@@ -99,10 +88,10 @@ export default async function DashboardPage() {
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <p className="mb-4 text-sm text-muted-foreground">
-            No tournaments yet. Create your first one to get started.
+            {dict.dashboard.empty}
           </p>
           <Button asChild>
-            <Link href="/tournaments/new">Create tournament</Link>
+            <Link href="/tournaments/new">{dict.dashboard.create_cta}</Link>
           </Button>
         </div>
       )}

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/locale-provider";
 import { createTeam, joinTeam, guestCreateTeam, guestJoinTeam } from "./team-actions";
 
 type Team = {
@@ -18,15 +19,19 @@ function NamePicker({
   names,
   value,
   onChange,
+  selectLabel,
+  orTypeLabel,
 }: {
   names: string[];
   value: string;
   onChange: (name: string) => void;
+  selectLabel: string;
+  orTypeLabel: string;
 }) {
   if (names.length === 0) return null;
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="text-sm font-medium text-foreground">Select your name</p>
+      <p className="text-sm font-medium text-foreground">{selectLabel}</p>
       <ul className="flex flex-col gap-1">
         {names.map((name) => (
           <li key={name}>
@@ -46,7 +51,7 @@ function NamePicker({
       </ul>
       <div className="flex items-center gap-2">
         <div className="h-px flex-1 bg-border" />
-        <span className="text-xs text-muted-foreground">or type your name</span>
+        <span className="text-xs text-muted-foreground">{orTypeLabel}</span>
         <div className="h-px flex-1 bg-border" />
       </div>
     </div>
@@ -69,6 +74,7 @@ export function TeamJoinSection({
   presetNames?: string[];
 }) {
   const router = useRouter();
+  const t = useT();
   const [mode, setMode] = useState<Mode>("list");
   const [targetTeamId, setTargetTeamId] = useState<string | null>(null);
   const [teamName, setTeamName] = useState("");
@@ -131,41 +137,36 @@ export function TeamJoinSection({
 
   // ── Guest: join existing team ──
   if (mode === "join-guest") {
-    const team = teams.find((t) => t.id === targetTeamId);
+    const team = teams.find((tm) => tm.id === targetTeamId);
     return (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
-          Joining team: <span className="font-medium text-foreground">{team?.name}</span>
+          {t("join.joining_team")} <span className="font-medium text-foreground">{team?.name}</span>
         </p>
         {showNamePicker && (
-          <NamePicker names={presetNames} value={displayName} onChange={setDisplayName} />
+          <NamePicker names={presetNames} value={displayName} onChange={setDisplayName} selectLabel={t("join.select_name")} orTypeLabel={t("join.or_type_name")} />
         )}
         <div className="flex flex-col gap-1.5">
-          {showNamePicker && (
-            <label className="text-sm font-medium text-foreground">Your name</label>
-          )}
-          {!showNamePicker && (
-            <label className="text-sm font-medium text-foreground">Your name</label>
-          )}
+          <label className="text-sm font-medium text-foreground">{t("join.your_name")}</label>
           <input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Enter your name"
+            placeholder={t("join.your_name_placeholder")}
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1" onClick={reset} disabled={isPending}>
-            Back
+            {t("common.back")}
           </Button>
           <Button
             className="flex-1"
             onClick={handleGuestJoinTeam}
             disabled={isPending || !displayName.trim()}
           >
-            {isPending ? "Joining…" : "Join team"}
+            {isPending ? t("join.joining") : t("join.join_team_btn")}
           </Button>
         </div>
       </div>
@@ -176,29 +177,29 @@ export function TeamJoinSection({
   if (mode === "create") {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-foreground">Create a new team</p>
+        <p className="text-sm font-medium text-foreground">{t("join.create_team_title")}</p>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Team name</label>
+          <label className="text-sm font-medium text-foreground">{t("join.team_name")}</label>
           <input
             type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
-            placeholder="Enter team name"
+            placeholder={t("join.team_name_placeholder")}
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </div>
         {!isAuthenticated && allowAnonymous && (
           <>
             {showNamePicker && (
-              <NamePicker names={presetNames} value={displayName} onChange={setDisplayName} />
+              <NamePicker names={presetNames} value={displayName} onChange={setDisplayName} selectLabel={t("join.select_name")} orTypeLabel={t("join.or_type_name")} />
             )}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Your name</label>
+              <label className="text-sm font-medium text-foreground">{t("join.your_name")}</label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Enter your name"
+                placeholder={t("join.your_name_placeholder")}
                 className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
@@ -207,7 +208,7 @@ export function TeamJoinSection({
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1" onClick={reset} disabled={isPending}>
-            Back
+            {t("common.back")}
           </Button>
           <Button
             className="flex-1"
@@ -218,7 +219,7 @@ export function TeamJoinSection({
               (!isAuthenticated && allowAnonymous && !displayName.trim())
             }
           >
-            {isPending ? "Creating…" : "Create team"}
+            {isPending ? t("join.creating") : t("join.create_team_btn")}
           </Button>
         </div>
       </div>
@@ -230,7 +231,7 @@ export function TeamJoinSection({
     <div className="flex flex-col gap-3">
       {teams.length > 0 ? (
         <>
-          <p className="text-sm font-medium text-foreground">Join a team</p>
+          <p className="text-sm font-medium text-foreground">{t("join.join_team")}</p>
           <ul className="flex flex-col gap-1.5">
             {teams.map((team) => {
               const full = maxTeamSize !== null && team.memberCount >= maxTeamSize;
@@ -243,8 +244,8 @@ export function TeamJoinSection({
                     <p className="text-sm font-medium text-foreground">{team.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {team.memberCount}
-                      {maxTeamSize ? ` / ${maxTeamSize}` : ""} member
-                      {team.memberCount !== 1 ? "s" : ""}
+                      {maxTeamSize ? ` / ${maxTeamSize}` : ""}{" "}
+                      {team.memberCount === 1 ? t("join.members_one") : t("join.members_other")}
                     </p>
                   </div>
                   <Button
@@ -253,7 +254,7 @@ export function TeamJoinSection({
                     onClick={() => handleJoinTeam(team.id)}
                     disabled={isPending || full || (!isAuthenticated && !allowAnonymous)}
                   >
-                    {full ? "Full" : "Join"}
+                    {full ? t("common.full") : t("join.join_team_btn")}
                   </Button>
                 </li>
               );
@@ -262,25 +263,25 @@ export function TeamJoinSection({
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="flex items-center gap-2">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">or</span>
+            <span className="text-xs text-muted-foreground">{t("common.or")}</span>
             <div className="h-px flex-1 bg-border" />
           </div>
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No teams yet — be the first to create one!
+          {t("join.no_teams")}
         </p>
       )}
 
       {(isAuthenticated || allowAnonymous) && (
         <Button onClick={() => setMode("create")} disabled={isPending}>
-          Create a team
+          {t("join.create_team")}
         </Button>
       )}
 
       {!isAuthenticated && !allowAnonymous && (
         <p className="text-center text-xs text-muted-foreground">
-          Sign in to create or join a team.
+          {t("join.sign_in_for_teams")}
         </p>
       )}
     </div>

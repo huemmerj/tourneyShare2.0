@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 import { signIn } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/locale-provider";
 
 export default function SignInPage({
   searchParams,
@@ -13,6 +14,7 @@ export default function SignInPage({
 }) {
   const { next } = use(searchParams);
   const router = useRouter();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -25,7 +27,7 @@ export default function SignInPage({
     const { error: err } = await signIn.email({ email, password });
     setLoading(false);
     if (err) {
-      setError(err.message ?? "Invalid email or password.");
+      setError(err.message ?? t("auth.sign_in.error"));
       return;
     }
     router.push(next ?? "/dashboard");
@@ -34,13 +36,13 @@ export default function SignInPage({
 
   return (
     <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-foreground">Sign in</h1>
-      <p className="mb-6 text-sm text-muted-foreground">Enter your credentials to continue.</p>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-foreground">{t("auth.sign_in.title")}</h1>
+      <p className="mb-6 text-sm text-muted-foreground">{t("auth.sign_in.subtitle")}</p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium text-foreground">
-            Email
+            {t("auth.sign_in.email")}
           </label>
           <input
             id="email"
@@ -50,13 +52,13 @@ export default function SignInPage({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            placeholder="you@example.com"
+            placeholder={t("auth.sign_in.email_placeholder")}
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="password" className="text-sm font-medium text-foreground">
-            Password
+            {t("auth.sign_in.password")}
           </label>
           <input
             id="password"
@@ -66,21 +68,21 @@ export default function SignInPage({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            placeholder="••••••••"
+            placeholder={t("auth.sign_in.password_placeholder")}
           />
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button type="submit" disabled={loading} className="mt-1 w-full">
-          {loading ? "Signing in…" : "Sign in"}
+          {loading ? t("auth.sign_in.submitting") : t("auth.sign_in.submit")}
         </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        No account?{" "}
+        {t("auth.sign_in.no_account")}{" "}
         <Link href="/sign-up" className="font-medium text-primary underline-offset-4 hover:underline">
-          Sign up
+          {t("auth.sign_in.sign_up_link")}
         </Link>
       </p>
     </div>

@@ -4,27 +4,13 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { getLocale, getDictionary } from "@/lib/i18n";
 import { TournamentActions, CopyButton } from "./tournament-actions";
 import { GenerateBracketButton } from "./generate-bracket-button";
 import { MatchesView } from "./matches-view";
 import { ParticipantManager } from "./participant-manager";
 import { QRCodeDialog } from "./qr-code-dialog";
 import type { Tournament } from "@/lib/types";
-
-const FORMAT_LABELS: Record<string, string> = {
-  single_elimination: "Single Elimination",
-  double_elimination: "Double Elimination",
-  round_robin: "Round Robin",
-  swiss: "Swiss",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  registration: "Registration open",
-  active: "Active",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -42,6 +28,9 @@ export default async function TournamentPage({
   const { id } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/sign-in");
+
+  const locale = await getLocale();
+  const dict = await getDictionary(locale);
 
   const { data: tournament } = await supabaseAdmin
     .from("tournaments")
@@ -128,10 +117,10 @@ export default async function TournamentPage({
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[tournament.status]}`}
             >
-              {STATUS_LABELS[tournament.status]}
+              {dict.status[tournament.status as keyof typeof dict.status]}
             </span>
             <span className="text-xs text-muted-foreground">
-              {FORMAT_LABELS[tournament.format]}
+              {dict.format[tournament.format as keyof typeof dict.format]}
             </span>
             <span className="text-xs text-muted-foreground">·</span>
             <span className="text-xs text-muted-foreground capitalize">
@@ -151,7 +140,7 @@ export default async function TournamentPage({
         {isOwner && (
           <div className="flex shrink-0 gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/tournaments/${id}/edit`}>Edit</Link>
+              <Link href={`/tournaments/${id}/edit`}>{dict.common.edit}</Link>
             </Button>
             <TournamentActions tournament={tournament} />
           </div>
@@ -162,7 +151,7 @@ export default async function TournamentPage({
         {/* Invite link */}
         <div className="rounded-xl border border-border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold text-foreground">
-            Invite link
+            {dict.tournament.invite_link}
           </h2>
           <p className="mb-3 break-all font-mono text-xs text-muted-foreground">
             {inviteUrl}
@@ -175,29 +164,23 @@ export default async function TournamentPage({
 
         {/* Details */}
         <div className="rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold text-foreground">Details</h2>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">{dict.tournament.details}</h2>
           <dl className="flex flex-col gap-1.5 text-sm">
             {tournament.sport_type && (
-              <Row label="Sport / game" value={tournament.sport_type} />
+              <Row label={dict.tournament.sport_game} value={tournament.sport_type} />
             )}
             <Row
-              label="Participants"
+              label={dict.tournament.participants_label}
               value={`${participantCount}${tournament.max_participants ? ` / ${tournament.max_participants}` : ""}`}
             />
             {tournament.start_date && (
-              <Row
-                label="Start"
-                value={new Date(tournament.start_date).toLocaleString()}
-              />
+              <Row label={dict.tournament.start} value={new Date(tournament.start_date).toLocaleString()} />
             )}
             {tournament.end_date && (
-              <Row
-                label="End"
-                value={new Date(tournament.end_date).toLocaleString()}
-              />
+              <Row label={dict.tournament.end} value={new Date(tournament.end_date).toLocaleString()} />
             )}
-            <Row label="Anonymous join" value={tournament.allow_anonymous ? "Allowed" : "Disabled"} />
-            <Row label="Dispute flow" value={tournament.dispute_flow_enabled ? "Enabled" : "Disabled"} />
+            <Row label={dict.tournament.anonymous_join} value={tournament.allow_anonymous ? dict.common.allowed : dict.common.disabled} />
+            <Row label={dict.tournament.dispute_flow_label} value={tournament.dispute_flow_enabled ? dict.common.enabled : dict.common.disabled} />
           </dl>
         </div>
       </div>
@@ -212,9 +195,12 @@ export default async function TournamentPage({
       {/* Generate bracket */}
       {isOwner && tournament.status === "registration" && confirmedCount >= 2 && (
         <div className="mt-4 rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-1 text-sm font-semibold text-foreground">Bracket</h2>
+          <h2 className="mb-1 text-sm font-semibold text-foreground">{dict.tournament.bracket}</h2>
           <p className="mb-3 text-sm text-muted-foreground">
-            {confirmedCount} confirmed participant{confirmedCount !== 1 ? "s" : ""}. Ready to generate.
+            {confirmedCount === 1
+              ? dict.tournament.confirmed_one
+              : dict.tournament.confirmed_other.replace("{{count}}", String(confirmedCount))}{" "}
+            {dict.tournament.ready_to_generate}
           </p>
           <GenerateBracketButton tournamentId={id} />
         </div>
@@ -227,6 +213,13 @@ export default async function TournamentPage({
           participants={participants}
           isOwner={isOwner}
           scoringRule={tournament.scoring_rule}
+          labels={{
+            tbd: dict.matches.tbd,
+            bye: dict.matches.bye,
+            you: dict.matches.you,
+            losers: dict.matches.losers,
+            grand_final: dict.matches.grand_final,
+          }}
         />
       )}
     </div>

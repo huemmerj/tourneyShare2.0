@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/locale-provider";
 import { claimParticipantSlot, guestClaimSlot } from "./actions";
 
 type PresetSlot = {
@@ -22,6 +23,7 @@ export function ClaimSlotForm({
   allowAnonymous: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [selected, setSelected] = useState<PresetSlot | null>(null);
   const [guestName, setGuestName] = useState("");
   const [error, setError] = useState("");
@@ -55,23 +57,23 @@ export function ClaimSlotForm({
     return (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
-          Claiming slot:{" "}
+          {t("join.claiming_slot")}{" "}
           <span className="font-medium text-foreground">{selected.display_name}</span>
         </p>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="guest-name" className="text-sm font-medium text-foreground">
-            Your name
+            {t("join.your_name")}
           </label>
           <input
             id="guest-name"
             type="text"
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
-            placeholder="How should we call you?"
+            placeholder={t("join.name_placeholder")}
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
           <p className="text-xs text-muted-foreground">
-            You can keep your assigned name or change it.
+            {t("join.name_hint")}
           </p>
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -82,14 +84,14 @@ export function ClaimSlotForm({
             onClick={() => setSelected(null)}
             disabled={isPending}
           >
-            Back
+            {t("common.back")}
           </Button>
           <Button
             className="flex-1"
             onClick={handleGuestClaim}
             disabled={isPending}
           >
-            {isPending ? "Joining…" : "Confirm"}
+            {isPending ? t("join.joining") : t("common.confirm")}
           </Button>
         </div>
       </div>
@@ -98,7 +100,7 @@ export function ClaimSlotForm({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm font-medium text-foreground">Select your name</p>
+      <p className="text-sm font-medium text-foreground">{t("join.select_name")}</p>
       <ul className="flex flex-col gap-1.5">
         {presetSlots.map((slot) => (
           <li key={slot.id}>

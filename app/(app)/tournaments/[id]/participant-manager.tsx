@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/locale-provider";
 import {
   addPresetParticipant,
   removeParticipant,
@@ -33,6 +34,7 @@ export function ParticipantManager({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -93,7 +95,7 @@ export function ParticipantManager({
     <div className="mt-4 rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-foreground">
-          Participants{" "}
+          {t("participants.title")}{" "}
           <span className="text-muted-foreground">({participants.length})</span>
         </h2>
         {canEdit && participants.length > 1 && (
@@ -103,7 +105,7 @@ export function ParticipantManager({
             onClick={handleShuffle}
             disabled={isPending}
           >
-            Shuffle seeds
+            {t("participants.shuffle")}
           </Button>
         )}
       </div>
@@ -118,13 +120,13 @@ export function ParticipantManager({
                     {getDisplayName(p)}
                   </span>
                   {p.seed !== null && (
-                    <span className="text-xs text-muted-foreground">Seed {p.seed}</span>
+                    <span className="text-xs text-muted-foreground">{t("participants.seed")} {p.seed}</span>
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {isUnclaimed(p) && (
                     <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                      Unclaimed
+                      {t("participants.unclaimed")}
                     </span>
                   )}
                   <span
@@ -144,7 +146,7 @@ export function ParticipantManager({
                       disabled={isPending}
                       className="h-6 px-2 text-xs"
                     >
-                      Confirm
+                      {t("participants.confirm")}
                     </Button>
                   )}
                   {canEdit && (
@@ -155,7 +157,7 @@ export function ParticipantManager({
                       disabled={isPending}
                       className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                      Remove
+                      {t("participants.remove")}
                     </Button>
                   )}
                 </div>
@@ -179,14 +181,14 @@ export function ParticipantManager({
         </ul>
       ) : (
         <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-          No participants yet. Add names below or share the invite link.
+          {t("participants.empty")}
         </p>
       )}
 
       {canEdit && (
         <div className="border-t border-border px-4 py-3">
           <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Pre-add a participant name
+            {t("participants.pre_add")}
           </p>
           <div className="flex gap-2">
             <input
@@ -194,7 +196,7 @@ export function ParticipantManager({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder="Participant name"
+              placeholder={t("participants.name_placeholder")}
               className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
             <Button
@@ -202,7 +204,7 @@ export function ParticipantManager({
               onClick={handleAdd}
               disabled={isPending || !name.trim()}
             >
-              Add
+              {t("participants.add")}
             </Button>
           </div>
           {error && (

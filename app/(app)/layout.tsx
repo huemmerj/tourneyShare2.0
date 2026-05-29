@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@/components/sign-out-button";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             TourneyShare
           </Link>
           <nav className="flex items-center gap-3">
+            <LanguageSwitcher />
             <Link
               href="/profile"
               className="hidden max-w-[160px] truncate text-sm text-muted-foreground hover:text-foreground sm:block"
