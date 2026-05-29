@@ -10,6 +10,7 @@ import { GenerateBracketButton } from "./generate-bracket-button";
 import { MatchesView } from "./matches-view";
 import { ParticipantManager } from "./participant-manager";
 import { QRCodeDialog } from "./qr-code-dialog";
+import { TeamAssignment } from "./team-assignment";
 import type { Tournament } from "@/lib/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -191,6 +192,37 @@ export default async function TournamentPage({
         participants={participants}
         canEdit={isOwner && tournament.status !== "active" && tournament.status !== "completed"}
       />
+
+      {/* Admin team assignment (admin_assigned mode) */}
+      {isOwner &&
+        tournament.participant_type === "team" &&
+        tournament.team_mode === "admin_assigned" &&
+        tournament.status === "registration" && (() => {
+          const unassignedData = participants
+            .filter((p) => !p.team_id)
+            .map((p) => ({
+              id: p.id,
+              displayName: p.guest
+                ? p.guest.display_name
+                : p.user
+                  ? p.user.name || p.user.email
+                  : p.display_name ?? "Unknown",
+            }));
+          const assignedTeamsData = participants
+            .filter((p) => p.team)
+            .map((p) => ({
+              id: p.team!.id,
+              name: p.team!.name,
+              members: p.teamMembers.map((m) => m.display_name),
+            }));
+          return (
+            <TeamAssignment
+              tournamentId={id}
+              unassigned={unassignedData}
+              assignedTeams={assignedTeamsData}
+            />
+          );
+        })()}
 
       {/* Generate bracket */}
       {isOwner && tournament.status === "registration" && confirmedCount >= 2 && (

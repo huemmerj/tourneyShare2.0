@@ -33,6 +33,7 @@ export default function EditTournamentPage({
   const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [disputeFlow, setDisputeFlow] = useState(false);
   const [scoringRule, setScoringRule] = useState<"higher_wins" | "lower_wins">("higher_wins");
+  const [teamMode, setTeamMode] = useState<"self_select" | "admin_assigned">("self_select");
 
   useEffect(() => {
     supabase
@@ -55,6 +56,7 @@ export default function EditTournamentPage({
           setAllowAnonymous(data.allow_anonymous);
           setDisputeFlow(data.dispute_flow_enabled);
           setScoringRule(data.scoring_rule ?? "higher_wins");
+          setTeamMode(data.team_mode ?? "self_select");
         }
         setFetching(false);
       });
@@ -80,6 +82,7 @@ export default function EditTournamentPage({
       allow_anonymous: allowAnonymous,
       dispute_flow_enabled: disputeFlow,
       scoring_rule: scoringRule,
+      team_mode: participantType === "team" ? teamMode : "self_select",
     });
 
     setLoading(false);
@@ -137,6 +140,14 @@ export default function EditTournamentPage({
           {participantType === "team" && (
             <Field label={t("tournament.max_team_size")}>
               <input type="number" min={1} value={maxTeamSize} onChange={(e) => setMaxTeamSize(e.target.value)} placeholder={t("common.no_limit")} className={inputCls} />
+            </Field>
+          )}
+          {participantType === "team" && (
+            <Field label={t("tournament.team_mode")}>
+              <select value={teamMode} onChange={(e) => setTeamMode(e.target.value as "self_select" | "admin_assigned")} className={inputCls}>
+                <option value="self_select">{t("tournament.team_mode_self_select")}</option>
+                <option value="admin_assigned">{t("tournament.team_mode_admin_assigned")}</option>
+              </select>
             </Field>
           )}
         </section>

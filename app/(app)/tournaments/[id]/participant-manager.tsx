@@ -113,54 +113,52 @@ export function ParticipantManager({
       {participants.length > 0 ? (
         <ul className="divide-y divide-border">
           {participants.map((p) => (
-            <li key={p.id} className="min-w-0 px-4 py-2.5 text-sm">
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium text-foreground">
-                    {getDisplayName(p)}
+            <li key={p.id} className="flex min-w-0 flex-col gap-1 px-4 py-2.5 text-sm">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                  {getDisplayName(p)}
+                </span>
+                {p.seed !== null && (
+                  <span className="shrink-0 text-xs text-muted-foreground">{t("participants.seed")} {p.seed}</span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {isUnclaimed(p) && (
+                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                    {t("participants.unclaimed")}
                   </span>
-                  {p.seed !== null && (
-                    <span className="text-xs text-muted-foreground">{t("participants.seed")} {p.seed}</span>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {isUnclaimed(p) && (
-                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
-                      {t("participants.unclaimed")}
-                    </span>
-                  )}
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                      p.status === "confirmed"
-                        ? "bg-success/10 text-success"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+                )}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                    p.status === "confirmed"
+                      ? "bg-success/10 text-success"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {p.status}
+                </span>
+                {canEdit && p.status === "pending" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleConfirm(p.id)}
+                    disabled={isPending}
+                    className="h-6 px-2 text-xs"
                   >
-                    {p.status}
-                  </span>
-                  {canEdit && p.status === "pending" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleConfirm(p.id)}
-                      disabled={isPending}
-                      className="h-6 px-2 text-xs"
-                    >
-                      {t("participants.confirm")}
-                    </Button>
-                  )}
-                  {canEdit && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemove(p.id)}
-                      disabled={isPending}
-                      className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      {t("participants.remove")}
-                    </Button>
-                  )}
-                </div>
+                    {t("participants.confirm")}
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemove(p.id)}
+                    disabled={isPending}
+                    className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    {t("participants.remove")}
+                  </Button>
+                )}
               </div>
 
               {/* Team members list */}

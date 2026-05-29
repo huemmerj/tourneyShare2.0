@@ -117,6 +117,9 @@
     "scoring_rule": "Wertungsregel",
     "higher_wins": "Höhere Punktzahl gewinnt",
     "lower_wins": "Niedrigere Punktzahl gewinnt",
+    "team_mode": "Team-Zuweisung",
+    "team_mode_self_select": "Spieler wählen selbst ihr Team",
+    "team_mode_admin_assigned": "Admin weist Teams nach der Anmeldung zu",
     "create": "Turnier erstellen",
     "creating": "Erstellen…",
     "save": "Änderungen speichern",
@@ -145,7 +148,17 @@
     "generate_bracket": "Bracket generieren",
     "qr_code": "QR-Code",
     "invite_qr_title": "Einladungs-QR-Code",
-    "scan_to_join": "Scannen, um dem Turnier beizutreten"
+    "scan_to_join": "Scannen, um dem Turnier beizutreten",
+    "team_assignment_title": "Team-Zuweisung",
+    "unassigned": "Nicht zugewiesene Teilnehmer",
+    "no_unassigned": "Alle Teilnehmer wurden Teams zugewiesen.",
+    "team_name_new": "Neuer Teamname",
+    "create_team_with_selected": "Team mit Ausgewählten erstellen",
+    "random_assign": "Alle zufällig zuweisen",
+    "team_size_label": "Spieler pro Team",
+    "select_to_assign": "Teilnehmer zum Zuweisen auswählen",
+    "assigned_teams": "Zugewiesene Teams",
+    "admin_registered_note": "Du bist angemeldet. Der Admin wird dich einem Team zuweisen."
   },
   "participants": {
     "title": "Teilnehmer",

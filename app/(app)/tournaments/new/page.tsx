@@ -26,6 +26,7 @@ export default function NewTournamentPage() {
   const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [disputeFlow, setDisputeFlow] = useState(false);
   const [scoringRule, setScoringRule] = useState<"higher_wins" | "lower_wins">("higher_wins");
+  const [teamMode, setTeamMode] = useState<"self_select" | "admin_assigned">("self_select");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,6 +48,7 @@ export default function NewTournamentPage() {
       allow_anonymous: allowAnonymous,
       dispute_flow_enabled: disputeFlow,
       scoring_rule: scoringRule,
+      team_mode: participantType === "team" ? teamMode : "self_select",
     });
 
     setLoading(false);
@@ -147,6 +149,18 @@ export default function NewTournamentPage() {
                 placeholder={t("common.no_limit")}
                 className={inputCls}
               />
+            </Field>
+          )}
+          {participantType === "team" && (
+            <Field label={t("tournament.team_mode")}>
+              <select
+                value={teamMode}
+                onChange={(e) => setTeamMode(e.target.value as "self_select" | "admin_assigned")}
+                className={inputCls}
+              >
+                <option value="self_select">{t("tournament.team_mode_self_select")}</option>
+                <option value="admin_assigned">{t("tournament.team_mode_admin_assigned")}</option>
+              </select>
             </Field>
           )}
         </section>

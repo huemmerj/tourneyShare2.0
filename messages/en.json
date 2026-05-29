@@ -117,6 +117,9 @@
     "scoring_rule": "Scoring rule",
     "higher_wins": "Higher score wins",
     "lower_wins": "Lower score wins",
+    "team_mode": "Team assignment",
+    "team_mode_self_select": "Players choose their own teams",
+    "team_mode_admin_assigned": "Admin assigns teams after registration",
     "create": "Create tournament",
     "creating": "Creating…",
     "save": "Save changes",
@@ -145,7 +148,17 @@
     "generate_bracket": "Generate bracket",
     "qr_code": "QR Code",
     "invite_qr_title": "Invite QR Code",
-    "scan_to_join": "Scan to join the tournament"
+    "scan_to_join": "Scan to join the tournament",
+    "team_assignment_title": "Team Assignment",
+    "unassigned": "Unassigned participants",
+    "no_unassigned": "All participants have been assigned to teams.",
+    "team_name_new": "New team name",
+    "create_team_with_selected": "Create team with selected",
+    "random_assign": "Randomly assign all",
+    "team_size_label": "Players per team",
+    "select_to_assign": "Select participants to assign",
+    "assigned_teams": "Assigned teams",
+    "admin_registered_note": "You are registered. The admin will assign you to a team."
   },
   "participants": {
     "title": "Participants",

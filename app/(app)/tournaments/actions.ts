@@ -22,6 +22,7 @@ type TournamentInput = {
   allow_anonymous: boolean;
   dispute_flow_enabled: boolean;
   scoring_rule: "higher_wins" | "lower_wins";
+  team_mode?: "self_select" | "admin_assigned";
 };
 
 async function getSession() {
@@ -407,6 +408,154 @@ export async function confirmParticipant(
     .eq("tournament_id", tournamentId);
 
   if (error) return { error: error.message };
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}
+
+// Admin creates a team from selected unassigned participant IDs
+export async function assignUsersToTeam(
+  tournamentId: string,
+  teamName: string,
+  participantIds: string[]
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const trimmed = teamName.trim();
+  if (!trimmed) return { error: "Team name is required" };
+  if (participantIds.length === 0) return { error: "Select at least one participant" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, status, max_team_size")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+  if (tournament.status === "active" || tournament.status === "completed")
+    return { error: "Cannot assign teams after tournament has started" };
+
+  if (tournament.max_team_size && participantIds.length > tournament.max_team_size)
+    return { error: `Team cannot exceed ${tournament.max_team_size} members` };
+
+  const { data: participants } = await supabaseAdmin
+    .from("participants")
+    .select("id, user_id, guest_token_id, display_name")
+    .in("id", participantIds)
+    .eq("tournament_id", tournamentId)
+    .is("team_id", null);
+
+  if (!participants || participants.length === 0) return { error: "No valid participants found" };
+
+  const userIds = participants.filter((p) => p.user_id).map((p) => p.user_id as string);
+  let userNameMap: Map<string, string> = new Map();
+  if (userIds.length > 0) {
+    const { data: users } = await supabaseAdmin
+      .from("user").select("id, name, email").in("id", userIds);
+    userNameMap = new Map((users ?? []).map((u) => [u.id, u.name || u.email]));
+  }
+
+  const { data: team, error: teamError } = await supabaseAdmin
+    .from("teams")
+    .insert({ tournament_id: tournamentId, name: trimmed, created_by: session.user.id })
+    .select("id").single();
+
+  if (teamError || !team) return { error: teamError?.message ?? "Failed to create team" };
+
+  const memberRows = participants.map((p) => ({
+    team_id: team.id,
+    user_id: p.user_id ?? null,
+    guest_token_id: p.guest_token_id ?? null,
+    display_name: p.user_id ? (userNameMap.get(p.user_id) ?? "Unknown") : p.display_name ?? "Guest",
+  }));
+
+  const { error: memberError } = await supabaseAdmin.from("team_members").insert(memberRows);
+  if (memberError) return { error: memberError.message };
+
+  const { error: participantError } = await supabaseAdmin.from("participants").insert({
+    tournament_id: tournamentId, team_id: team.id, status: "confirmed",
+  });
+  if (participantError) return { error: participantError.message };
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("participants").delete().in("id", participantIds);
+  if (deleteError) return { error: deleteError.message };
+
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}
+
+// Randomly split all unassigned participants into teams of a given size
+export async function randomAssignTeams(
+  tournamentId: string,
+  teamSize: number
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  if (!Number.isInteger(teamSize) || teamSize < 1)
+    return { error: "Team size must be a positive integer" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, status")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+
+  const { data: unassigned } = await supabaseAdmin
+    .from("participants")
+    .select("id, user_id, guest_token_id, display_name")
+    .eq("tournament_id", tournamentId)
+    .is("team_id", null);
+
+  if (!unassigned || unassigned.length === 0)
+    return { error: "No unassigned participants found" };
+
+  const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
+
+  const userIds = shuffled.filter((p) => p.user_id).map((p) => p.user_id as string);
+  let userNameMap: Map<string, string> = new Map();
+  if (userIds.length > 0) {
+    const { data: users } = await supabaseAdmin
+      .from("user").select("id, name, email").in("id", userIds);
+    userNameMap = new Map((users ?? []).map((u) => [u.id, u.name || u.email]));
+  }
+
+  const chunks: typeof shuffled[] = [];
+  for (let i = 0; i < shuffled.length; i += teamSize) {
+    chunks.push(shuffled.slice(i, i + teamSize));
+  }
+
+  const { count: existingTeams } = await supabaseAdmin
+    .from("teams").select("id", { count: "exact", head: true }).eq("tournament_id", tournamentId);
+  let offset = (existingTeams ?? 0) + 1;
+
+  for (const chunk of chunks) {
+    const teamName = `Team ${offset++}`;
+    const { data: team, error: teamError } = await supabaseAdmin
+      .from("teams")
+      .insert({ tournament_id: tournamentId, name: teamName, created_by: session.user.id })
+      .select("id").single();
+    if (teamError || !team) return { error: teamError?.message ?? "Failed to create team" };
+
+    await supabaseAdmin.from("team_members").insert(
+      chunk.map((p) => ({
+        team_id: team.id,
+        user_id: p.user_id ?? null,
+        guest_token_id: p.guest_token_id ?? null,
+        display_name: p.user_id ? (userNameMap.get(p.user_id) ?? "Unknown") : p.display_name ?? "Guest",
+      }))
+    );
+    await supabaseAdmin.from("participants").insert({
+      tournament_id: tournamentId, team_id: team.id, status: "confirmed",
+    });
+    await supabaseAdmin.from("participants").delete().in("id", chunk.map((p) => p.id));
+  }
+
   revalidatePath(`/tournaments/${tournamentId}`);
   return { ok: true };
 }

@@ -34,6 +34,7 @@ export type Tournament = {
   dispute_flow_enabled: boolean;
   results_visible: boolean;
   scoring_rule: "higher_wins" | "lower_wins";
+  team_mode: "self_select" | "admin_assigned";
   created_at: string;
   updated_at: string;
 };

@@ -190,6 +190,25 @@ export default async function JoinPage({
             <p className="text-center text-sm text-muted-foreground">
               {dict.join.full}
             </p>
+          ) : tournament.participant_type === "team" && tournament.team_mode === "admin_assigned" ? (
+            session ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-muted-foreground">{dict.tournament.admin_registered_note}</p>
+                <JoinButton tournamentId={tournament.id} />
+              </div>
+            ) : tournament.allow_anonymous ? (
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-muted-foreground">{dict.tournament.admin_registered_note}</p>
+                <GuestJoinForm tournamentId={tournament.id} />
+                <Button variant="outline" asChild className="w-full">
+                  <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
+                </Button>
+              </div>
+            ) : (
+              <Button asChild className="w-full">
+                <Link href={`/sign-in?next=/join/${code}`}>{dict.join.sign_in_to_join}</Link>
+              </Button>
+            )
           ) : tournament.participant_type === "team" ? (
             <TeamJoinSection
               tournamentId={tournament.id}
