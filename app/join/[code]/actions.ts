@@ -1,6 +1,7 @@
 "use server";
 
 import { headers, cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { createNotification } from "@/lib/notifications";
@@ -124,5 +125,125 @@ export async function guestJoinTournament(
     path: "/",
   });
 
+  return { ok: true };
+}
+
+// Authenticated user claims an admin-preset participant slot
+export async function claimParticipantSlot(
+  tournamentId: string,
+  participantId: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("name, status, owner_id")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.status !== "registration") return { error: "Registration is not open" };
+
+  // Check the slot exists and is unclaimed
+  const { data: slot } = await supabaseAdmin
+    .from("participants")
+    .select("id, user_id, guest_token_id, display_name")
+    .eq("id", participantId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+
+  if (!slot) return { error: "Slot not found" };
+  if (slot.user_id || slot.guest_token_id) return { error: "Slot already claimed" };
+
+  // Check user hasn't already joined this tournament
+  const { data: existing } = await supabaseAdmin
+    .from("participants")
+    .select("id")
+    .eq("tournament_id", tournamentId)
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  if (existing) return { error: "Already registered" };
+
+  const { error } = await supabaseAdmin
+    .from("participants")
+    .update({ user_id: session.user.id })
+    .eq("id", participantId);
+
+  if (error) return { error: error.message };
+
+  const joinerName = session.user.name || session.user.email;
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `${joinerName} claimed the slot "${slot.display_name}" in your tournament "${tournament.name}".`,
+  });
+
+  revalidatePath(`/join/${tournamentId}`);
+  return { ok: true };
+}
+
+// Guest claims an admin-preset participant slot
+export async function guestClaimSlot(
+  tournamentId: string,
+  participantId: string,
+  displayName: string
+): Promise<{ ok: true } | { error: string }> {
+  const trimmed = displayName.trim();
+  if (!trimmed) return { error: "Display name is required" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("name, status, allow_anonymous, owner_id")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (!tournament.allow_anonymous) return { error: "Anonymous join is not allowed" };
+  if (tournament.status !== "registration") return { error: "Registration is not open" };
+
+  const { data: slot } = await supabaseAdmin
+    .from("participants")
+    .select("id, user_id, guest_token_id, display_name")
+    .eq("id", participantId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+
+  if (!slot) return { error: "Slot not found" };
+  if (slot.user_id || slot.guest_token_id) return { error: "Slot already claimed" };
+
+  const { data: guestToken, error: tokenError } = await supabaseAdmin
+    .from("guest_tokens")
+    .insert({ tournament_id: tournamentId, display_name: trimmed })
+    .select("id, token")
+    .single();
+
+  if (tokenError || !guestToken) return { error: tokenError?.message ?? "Failed to create guest token" };
+
+  const { error } = await supabaseAdmin
+    .from("participants")
+    .update({ guest_token_id: guestToken.id })
+    .eq("id", participantId);
+
+  if (error) return { error: error.message };
+
+  await createNotification({
+    userId: tournament.owner_id,
+    tournamentId,
+    type: "participant_joined",
+    message: `${trimmed} (guest) claimed the slot "${slot.display_name}" in your tournament "${tournament.name}".`,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(`gt_${tournamentId}`, guestToken.token, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+  });
+
+  revalidatePath(`/join/${tournamentId}`);
   return { ok: true };
 }

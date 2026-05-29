@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { JoinButton } from "./join-button";
 import { GuestJoinForm } from "./guest-join-form";
+import { ClaimSlotForm } from "./claim-slot-form";
 import type { Tournament } from "@/lib/types";
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -66,6 +67,20 @@ export default async function JoinPage({
           .then((r) => (r.count ?? 0) >= tournament.max_participants!))
       : false;
 
+  // Fetch unclaimed preset slots (no user_id, no guest_token_id, display_name set)
+  const { data: rawPresets } = await supabaseAdmin
+    .from("participants")
+    .select("id, display_name")
+    .eq("tournament_id", tournament.id)
+    .is("user_id", null)
+    .is("guest_token_id", null)
+    .is("team_id", null)
+    .not("display_name", "is", null)
+    .order("seed", { nullsFirst: false })
+    .order("registered_at");
+
+  const presetSlots = (rawPresets ?? []) as { id: string; display_name: string }[];
+
   return (
     <div className="flex min-h-full flex-col items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md">
@@ -111,6 +126,34 @@ export default async function JoinPage({
             <p className="text-center text-sm text-muted-foreground">
               Team registration — sign in and visit the tournament page to create or join a team.
             </p>
+          ) : presetSlots.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <ClaimSlotForm
+                tournamentId={tournament.id}
+                presetSlots={presetSlots}
+                isAuthenticated={!!session}
+                allowAnonymous={tournament.allow_anonymous}
+              />
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">not on the list?</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              {session ? (
+                <JoinButton tournamentId={tournament.id} />
+              ) : tournament.allow_anonymous ? (
+                <div className="flex flex-col gap-3">
+                  <GuestJoinForm tournamentId={tournament.id} />
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href={`/sign-in?next=/join/${code}`}>Sign in to join</Link>
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" asChild className="w-full">
+                  <Link href={`/sign-in?next=/join/${code}`}>Sign in to join</Link>
+                </Button>
+              )}
+            </div>
           ) : session ? (
             <JoinButton tournamentId={tournament.id} />
           ) : tournament.allow_anonymous ? (

@@ -1,0 +1,199 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  addPresetParticipant,
+  removeParticipant,
+  shuffleParticipants,
+  confirmParticipant,
+} from "../actions";
+
+type Participant = {
+  id: string;
+  display_name: string | null;
+  user: { id: string; name: string; email: string } | null;
+  guest: { id: string; display_name: string } | null;
+  status: string;
+  seed: number | null;
+};
+
+export function ParticipantManager({
+  tournamentId,
+  participants,
+  canEdit,
+}: {
+  tournamentId: string;
+  participants: Participant[];
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function getDisplayName(p: Participant) {
+    if (p.guest) return p.guest.display_name;
+    if (p.user) return p.user.name || p.user.email;
+    return p.display_name ?? "Unknown";
+  }
+
+  function isUnclaimed(p: Participant) {
+    return !p.user && !p.guest;
+  }
+
+  function handleAdd() {
+    if (!name.trim()) return;
+    setError("");
+    startTransition(async () => {
+      const result = await addPresetParticipant(tournamentId, name);
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        setName("");
+        router.refresh();
+      }
+    });
+  }
+
+  function handleRemove(participantId: string) {
+    setError("");
+    startTransition(async () => {
+      const result = await removeParticipant(tournamentId, participantId);
+      if ("error" in result) setError(result.error);
+      else router.refresh();
+    });
+  }
+
+  function handleShuffle() {
+    setError("");
+    startTransition(async () => {
+      const result = await shuffleParticipants(tournamentId);
+      if ("error" in result) setError(result.error);
+      else router.refresh();
+    });
+  }
+
+  function handleConfirm(participantId: string) {
+    setError("");
+    startTransition(async () => {
+      const result = await confirmParticipant(tournamentId, participantId);
+      if ("error" in result) setError(result.error);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-foreground">
+          Participants{" "}
+          <span className="text-muted-foreground">({participants.length})</span>
+        </h2>
+        {canEdit && participants.length > 1 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShuffle}
+            disabled={isPending}
+          >
+            Shuffle seeds
+          </Button>
+        )}
+      </div>
+
+      {participants.length > 0 ? (
+        <ul className="divide-y divide-border">
+          {participants.map((p) => (
+            <li
+              key={p.id}
+              className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm"
+            >
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-foreground">
+                  {getDisplayName(p)}
+                </span>
+                {p.seed !== null && (
+                  <span className="text-xs text-muted-foreground">
+                    Seed {p.seed}
+                  </span>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {isUnclaimed(p) && (
+                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+                    Unclaimed
+                  </span>
+                )}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                    p.status === "confirmed"
+                      ? "bg-success/10 text-success"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {p.status}
+                </span>
+                {canEdit && p.status === "pending" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleConfirm(p.id)}
+                    disabled={isPending}
+                    className="h-6 px-2 text-xs"
+                  >
+                    Confirm
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemove(p.id)}
+                    disabled={isPending}
+                    className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+          No participants yet. Add names below or share the invite link.
+        </p>
+      )}
+
+      {canEdit && (
+        <div className="border-t border-border px-4 py-3">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Pre-add a participant name
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+              placeholder="Participant name"
+              className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+            <Button
+              size="sm"
+              onClick={handleAdd}
+              disabled={isPending || !name.trim()}
+            >
+              Add
+            </Button>
+          </div>
+          {error && (
+            <p className="mt-1.5 text-xs text-destructive">{error}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

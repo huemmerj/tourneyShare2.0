@@ -272,3 +272,140 @@ export async function setTournamentStatus(
   revalidatePath("/dashboard");
   return { ok: true };
 }
+
+export async function addPresetParticipant(
+  tournamentId: string,
+  name: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Name is required" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, status, max_participants")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+  if (tournament.status === "active" || tournament.status === "completed")
+    return { error: "Cannot add participants after tournament has started" };
+
+  if (tournament.max_participants) {
+    const { count } = await supabaseAdmin
+      .from("participants")
+      .select("id", { count: "exact", head: true })
+      .eq("tournament_id", tournamentId);
+    if ((count ?? 0) >= tournament.max_participants)
+      return { error: "Tournament is full" };
+  }
+
+  const { error } = await supabaseAdmin.from("participants").insert({
+    tournament_id: tournamentId,
+    display_name: trimmed,
+    status: "confirmed",
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}
+
+export async function removeParticipant(
+  tournamentId: string,
+  participantId: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, status")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+  if (tournament.status === "active" || tournament.status === "completed")
+    return { error: "Cannot remove participants after tournament has started" };
+
+  const { error } = await supabaseAdmin
+    .from("participants")
+    .delete()
+    .eq("id", participantId)
+    .eq("tournament_id", tournamentId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}
+
+export async function shuffleParticipants(
+  tournamentId: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id, status")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+  if (tournament.status === "active" || tournament.status === "completed")
+    return { error: "Cannot shuffle after tournament has started" };
+
+  const { data: participants } = await supabaseAdmin
+    .from("participants")
+    .select("id")
+    .eq("tournament_id", tournamentId);
+
+  if (!participants || participants.length === 0) return { ok: true };
+
+  // Assign a random permutation of seeds 1..n
+  const ids = participants.map((p) => p.id);
+  const seeds = Array.from({ length: ids.length }, (_, i) => i + 1).sort(
+    () => Math.random() - 0.5
+  );
+
+  await Promise.all(
+    ids.map((id, i) =>
+      supabaseAdmin.from("participants").update({ seed: seeds[i] }).eq("id", id)
+    )
+  );
+
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}
+
+export async function confirmParticipant(
+  tournamentId: string,
+  participantId: string
+): Promise<{ ok: true } | { error: string }> {
+  const session = await getSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const { data: tournament } = await supabaseAdmin
+    .from("tournaments")
+    .select("owner_id")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) return { error: "Tournament not found" };
+  if (tournament.owner_id !== session.user.id) return { error: "Not authorized" };
+
+  const { error } = await supabaseAdmin
+    .from("participants")
+    .update({ status: "confirmed" })
+    .eq("id", participantId)
+    .eq("tournament_id", tournamentId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/tournaments/${tournamentId}`);
+  return { ok: true };
+}

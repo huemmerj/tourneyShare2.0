@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TournamentActions, CopyButton } from "./tournament-actions";
 import { GenerateBracketButton } from "./generate-bracket-button";
 import { MatchesView } from "./matches-view";
+import { ParticipantManager } from "./participant-manager";
 import type { Tournament } from "@/lib/types";
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -53,7 +54,7 @@ export default async function TournamentPage({
 
   const { data: rawParticipants } = await supabaseAdmin
     .from("participants")
-    .select("id, tournament_id, user_id, guest_token_id, team_id, seed, status, registered_at")
+    .select("id, tournament_id, user_id, guest_token_id, team_id, display_name, seed, status, registered_at")
     .eq("tournament_id", id)
     .order("registered_at");
 
@@ -172,39 +173,11 @@ export default async function TournamentPage({
       </div>
 
       {/* Participants */}
-      <div className="mt-4 rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-foreground">
-            Participants{" "}
-            <span className="text-muted-foreground">({participantCount})</span>
-          </h2>
-        </div>
-        {participants.length > 0 ? (
-          <ul className="divide-y divide-border">
-            {participants.map((p) => {
-              const displayName = p.guest
-                ? p.guest.display_name
-                : p.user
-                  ? p.user.name || p.user.email
-                  : `User ${(p.user_id ?? "").slice(0, 8)}…`;
-              return (
-                <li key={p.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                  <span className="text-foreground">{displayName}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                    p.status === "confirmed" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                  }`}>
-                    {p.status}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No participants yet. Share the invite link to get people to join.
-          </p>
-        )}
-      </div>
+      <ParticipantManager
+        tournamentId={id}
+        participants={participants}
+        canEdit={isOwner && tournament.status !== "active" && tournament.status !== "completed"}
+      />
 
       {/* Generate bracket */}
       {isOwner && tournament.status === "registration" && confirmedCount >= 2 && (
