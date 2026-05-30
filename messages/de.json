@@ -166,6 +166,7 @@
     "team_name_new": "Neuer Teamname",
     "create_team_with_selected": "Team mit Ausgewählten erstellen",
     "random_assign": "Alle zufällig zuweisen",
+    "all_assigned": "Alle Personen sind bereits zugewiesen.",
     "team_size_label": "Spieler pro Team",
     "new_teams": "neue Teams",
     "select_to_assign": "Teilnehmer zum Zuweisen auswählen",

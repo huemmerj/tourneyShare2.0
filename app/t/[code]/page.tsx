@@ -178,7 +178,9 @@ export default async function SpectatorPage({
     }
   }
 
-  const participantCount = participants.length;
+  const participantCount = tournament.participant_type === "team"
+    ? participants.filter((p) => !p.team_id).length
+    : participants.length;
   const currentParticipantUnassigned =
     currentParticipantId !== null &&
     !participants.find((p) => p.id === currentParticipantId)?.team_id;

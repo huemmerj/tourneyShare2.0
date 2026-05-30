@@ -51,7 +51,6 @@ export default async function TournamentPage({
     .eq("tournament_id", id)
     .order("registered_at");
 
-  const participantCount = rawParticipants?.length ?? 0;
   const confirmedCount = rawParticipants?.filter((p) => p.status === "confirmed").length ?? 0;
 
   const userIds = rawParticipants?.filter((p) => p.user_id).map((p) => p.user_id as string) ?? [];
@@ -90,6 +89,10 @@ export default async function TournamentPage({
       .order("joined_at");
     teamMembersData = (data ?? []) as TeamMemberRow[];
   }
+
+  const participantCount = tournament.participant_type === "team"
+    ? rawParticipants?.filter((p) => !p.team_id).length ?? 0
+    : rawParticipants?.length ?? 0;
 
   const usersMap = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
   const guestsMap = new Map((guestsRes.data ?? []).map((g) => [g.id, g]));

@@ -93,11 +93,15 @@ export function ParticipantManager({
     });
   }
 
+  const peopleCount = isTeamTournament
+    ? participants.filter((p) => !p.team).length
+    : participants.length;
+
   return (
     <div className="rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <span className="text-sm text-muted-foreground">
-          {participants.length} {t("participants.title").toLowerCase()}
+          {peopleCount} {t("participants.title").toLowerCase()}
         </span>
         {canEdit && participants.length > 1 && (
           <Button

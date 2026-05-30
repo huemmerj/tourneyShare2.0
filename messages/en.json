@@ -166,6 +166,7 @@
     "team_name_new": "New team name",
     "create_team_with_selected": "Create team with selected",
     "random_assign": "Randomly assign all",
+    "all_assigned": "All people have already been assigned.",
     "team_size_label": "Players per team",
     "new_teams": "new teams",
     "select_to_assign": "Select participants to assign",

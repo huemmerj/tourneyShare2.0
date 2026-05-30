@@ -175,26 +175,31 @@ export function TeamAssignment({
               <div className="h-px flex-1 bg-border" />
             </div>
             {teamCount ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {t("tournament.random_assign")} ({Math.max(0, teamCount - assignedTeams.length)}{" "}
-                  {t("tournament.new_teams")}:{" "}
-                  {(() => {
-                    const n = unassigned.length;
-                    const newTeams = Math.max(1, teamCount - assignedTeams.length);
-                    if (n === 0) return "";
-                    const base = Math.floor(n / newTeams);
-                    const rem = n % newTeams;
-                    const parts: string[] = [];
-                    if (rem > 0) parts.push(`${rem}× ${base + 1}`);
-                    if (newTeams - rem > 0) parts.push(`${newTeams - rem}× ${base}`);
-                    return parts.join(", ");
-                  })()})
-                </span>
-                <Button size="sm" variant="outline" onClick={handleRandom} disabled={isPending}>
-                  {t("tournament.random_assign")}
-                </Button>
-              </div>
+              (() => {
+                const newTeamSlots = Math.max(0, teamCount - assignedTeams.length);
+                if (newTeamSlots === 0 || unassigned.length === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground">{t("tournament.all_assigned")}</p>
+                  );
+                }
+                const n = unassigned.length;
+                const base = Math.floor(n / newTeamSlots);
+                const rem = n % newTeamSlots;
+                const parts: string[] = [];
+                if (rem > 0) parts.push(`${rem}× ${base + 1}`);
+                if (newTeamSlots - rem > 0) parts.push(`${newTeamSlots - rem}× ${base}`);
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {t("tournament.random_assign")} ({newTeamSlots}{" "}
+                      {t("tournament.new_teams")}: {parts.join(", ")})
+                    </span>
+                    <Button size="sm" variant="outline" onClick={handleRandom} disabled={isPending}>
+                      {t("tournament.random_assign")}
+                    </Button>
+                  </div>
+                );
+              })()
             ) : (
               <div className="flex items-center gap-2">
                 <label className="text-sm text-muted-foreground whitespace-nowrap">
