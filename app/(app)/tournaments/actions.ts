@@ -413,10 +413,13 @@ export async function reportMatchResult(
       .single();
     if (nextW) {
       const slot = nextW.participant_a_id === null ? "participant_a_id" : "participant_b_id";
-      await supabaseAdmin
-        .from("matches")
-        .update({ [slot]: winnerId })
-        .eq("id", match.next_winner_match_id);
+      const otherId = slot === "participant_a_id" ? nextW.participant_b_id : nextW.participant_a_id;
+      if (otherId !== winnerId) {
+        await supabaseAdmin
+          .from("matches")
+          .update({ [slot]: winnerId })
+          .eq("id", match.next_winner_match_id);
+      }
     }
   }
 
@@ -429,10 +432,13 @@ export async function reportMatchResult(
       .single();
     if (nextL) {
       const slot = nextL.participant_a_id === null ? "participant_a_id" : "participant_b_id";
-      await supabaseAdmin
-        .from("matches")
-        .update({ [slot]: loserId })
-        .eq("id", match.next_loser_match_id);
+      const otherId = slot === "participant_a_id" ? nextL.participant_b_id : nextL.participant_a_id;
+      if (otherId !== loserId) {
+        await supabaseAdmin
+          .from("matches")
+          .update({ [slot]: loserId })
+          .eq("id", match.next_loser_match_id);
+      }
     }
   }
 

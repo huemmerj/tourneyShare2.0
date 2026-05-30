@@ -250,7 +250,11 @@ CREATE TABLE matches (
   updated_at           timestamptz  NOT NULL DEFAULT now(),
 
   CONSTRAINT unique_match_position UNIQUE (tournament_id, bracket, round_number, match_number),
-  CONSTRAINT no_self_match CHECK (participant_a_id IS DISTINCT FROM participant_b_id),
+  CONSTRAINT no_self_match CHECK (
+    participant_a_id IS NULL OR
+    participant_b_id IS NULL OR
+    participant_a_id <> participant_b_id
+  ),
   CONSTRAINT winner_is_participant CHECK (
     winner_id IS NULL OR
     winner_id = participant_a_id OR

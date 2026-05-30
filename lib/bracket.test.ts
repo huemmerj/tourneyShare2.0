@@ -24,9 +24,11 @@ function makePlayers(n: number): Participant[] {
 
 function assertNoSelfMatch(matches: ReturnType<typeof generateSingleElim>) {
   for (const m of matches) {
+    // Both non-null must be different (matches DB constraint logic)
     if (m.participant_a_id !== null && m.participant_b_id !== null) {
       expect(m.participant_a_id).not.toBe(m.participant_b_id);
     }
+    // Both null is allowed (TBD future-round slots)
   }
 }
 
