@@ -181,6 +181,7 @@ export default async function TournamentPage({
                 dates: dict.pdf.dates,
                 tbd: dict.pdf.tbd,
                 bye: dict.pdf.bye,
+                result: dict.pdf.result,
                 generated: dict.pdf.generated,
                 page: dict.pdf.page,
                 of: dict.pdf.of,

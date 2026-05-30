@@ -20,6 +20,8 @@ type Match = {
   bracket: "winners" | "losers" | "grand_final";
   participant_a_id: string | null;
   participant_b_id: string | null;
+  score_a: number | null;
+  score_b: number | null;
   status: string;
 };
 
@@ -80,6 +82,7 @@ export function TournamentPlanPDF({
     dates: string;
     tbd: string;
     bye: string;
+    result: string;
     generated: string;
     page: string;
     of: string;
@@ -299,7 +302,13 @@ export function TournamentPlanPDF({
           group.matches.push(m);
         }
 
-        const tableHeader: string[][] = [["#", labels.round, ""]];
+        const tableHeader: any[] = [
+          [
+            { content: "#", styles: { halign: "center" } },
+            labels.round,
+            { content: labels.result, styles: { halign: "center" } },
+          ],
+        ];
         const tableBody: any[] = [];
         let lastBracket = "";
 
@@ -338,7 +347,23 @@ export function TournamentPlanPDF({
             if (m.status === "bye") {
               tableBody.push([matchNum, nameA, labels.bye]);
             } else {
-              tableBody.push([matchNum, nameA, `vs. ${nameB}`]);
+              const score =
+                m.score_a !== null && m.score_b !== null
+                  ? `${m.score_a}:${m.score_b}`
+                  : "";
+              const fullText = `${nameA} ${labels.vs} ${nameB}`;
+              tableBody.push([
+                matchNum,
+                {
+                  content: fullText,
+                  __richText: [
+                    { text: nameA, fontStyle: "bold" },
+                    { text: ` ${labels.vs} `, fontStyle: "normal" },
+                    { text: nameB, fontStyle: "bold" },
+                  ],
+                },
+                score,
+              ]);
             }
           }
         }
@@ -369,29 +394,50 @@ export function TournamentPlanPDF({
           columnStyles: {
             0: { cellWidth: 12, fontStyle: "bold", halign: "center" },
             1: { cellWidth: "auto" },
-            2: { cellWidth: "auto", textColor: [80, 80, 80] },
+            2: { cellWidth: 28, halign: "center", textColor: [80, 80, 80], fontStyle: "bold" },
+          },
+          willDrawCell: (data) => {
+            if (data.section === "body" && data.column.index === 1) {
+              const raw = data.cell.raw as any;
+              if (raw?.__richText) {
+                data.cell.text = [];
+              }
+            }
+          },
+          didDrawCell: (data) => {
+            if (data.section === "body" && data.column.index === 1) {
+              const raw = data.cell.raw as any;
+              if (raw?.__richText) {
+                const doc = data.doc;
+                const cell = data.cell;
+                const pos = cell.getTextPos();
+
+                const k = doc.internal.scaleFactor;
+                const fontSize = doc.internal.getFontSize() / k;
+                const PHYSICAL_LINE_HEIGHT = 1.15;
+                const lineHeightFactor = doc.getLineHeightFactor
+                  ? doc.getLineHeightFactor()
+                  : PHYSICAL_LINE_HEIGHT;
+                const lineHeight = fontSize * lineHeightFactor;
+
+                let y = pos.y;
+                y += fontSize * (2 - PHYSICAL_LINE_HEIGHT);
+                if (cell.styles.valign === "middle") {
+                  y -= 0.5 * lineHeight;
+                } else if (cell.styles.valign === "bottom") {
+                  y -= lineHeight;
+                }
+
+                let x = pos.x;
+                for (const part of raw.__richText) {
+                  doc.setFont("helvetica", part.fontStyle);
+                  doc.text(part.text, x, y);
+                  x += doc.getTextWidth(part.text);
+                }
+              }
+            }
           },
         });
-      }
-
-      // --- Footer on every page ---
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(150, 150, 150);
-        doc.text(
-          `${labels.generated} ${new Date().toLocaleDateString(dateLocale)}`,
-          margin,
-          pageHeight - 8,
-        );
-        doc.text(
-          `${labels.page} ${i} ${labels.of} ${totalPages}`,
-          pageWidth - margin,
-          pageHeight - 8,
-          { align: "right" },
-        );
       }
 
       // Download
