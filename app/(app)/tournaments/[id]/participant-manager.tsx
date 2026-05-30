@@ -94,7 +94,7 @@ export function ParticipantManager({
   }
 
   const peopleCount = isTeamTournament
-    ? participants.filter((p) => !p.team).length
+    ? participants.filter((p) => !p.team).length + participants.reduce((sum, p) => sum + p.teamMembers.length, 0)
     : participants.length;
 
   return (

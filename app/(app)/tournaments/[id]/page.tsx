@@ -91,7 +91,7 @@ export default async function TournamentPage({
   }
 
   const participantCount = tournament.participant_type === "team"
-    ? rawParticipants?.filter((p) => !p.team_id).length ?? 0
+    ? (rawParticipants?.filter((p) => !p.team_id).length ?? 0) + (teamMembersData?.length ?? 0)
     : rawParticipants?.length ?? 0;
 
   const usersMap = new Map((usersRes.data ?? []).map((u) => [u.id, u]));
