@@ -815,7 +815,21 @@ export async function randomAssignTeams(
     // Only create new teams for the remaining slots
     const newTeamCount = Math.max(0, teamCount - existingTeams.length);
     if (newTeamCount === 0) {
-      return { error: "All teams already exist" };
+      // All teams exist — distribute remaining unassigned round-robin to existing teams
+      const teamIds = existingTeams.map((t) => t.id);
+      for (let i = 0; i < shuffled.length; i++) {
+        const p = shuffled[i];
+        const teamId = teamIds[i % teamIds.length];
+        await supabaseAdmin.from("team_members").insert({
+          team_id: teamId,
+          user_id: p.user_id ?? null,
+          guest_token_id: p.guest_token_id ?? null,
+          display_name: p.user_id ? (userNameMap.get(p.user_id) ?? "Unknown") : p.display_name ?? "Guest",
+        });
+        await supabaseAdmin.from("participants").delete().eq("id", p.id);
+      }
+      revalidatePath(`/tournaments/${tournamentId}`);
+      return { ok: true };
     }
     if (newTeamCount > shuffled.length) {
       return { error: "Not enough unassigned participants to fill remaining teams" };

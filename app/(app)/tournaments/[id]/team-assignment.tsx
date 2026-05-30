@@ -177,9 +177,19 @@ export function TeamAssignment({
             {teamCount ? (
               (() => {
                 const newTeamSlots = Math.max(0, teamCount - assignedTeams.length);
-                if (newTeamSlots === 0 || unassigned.length === 0) {
+                if (unassigned.length === 0) {
                   return (
                     <p className="text-sm text-muted-foreground">{t("tournament.all_assigned")}</p>
+                  );
+                }
+                if (newTeamSlots === 0) {
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{unassigned.length} {t("tournament.unassigned").toLowerCase()}</span>
+                      <Button size="sm" variant="outline" onClick={handleRandom} disabled={isPending}>
+                        {t("tournament.random_assign")}
+                      </Button>
+                    </div>
                   );
                 }
                 const n = unassigned.length;
