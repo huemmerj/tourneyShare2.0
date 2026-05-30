@@ -111,6 +111,14 @@ export async function createTeam(
 
   if (participantError) return { error: participantError.message };
 
+  // Remove the old unassigned participant row if user had registered without a team first
+  await supabaseAdmin
+    .from("participants")
+    .delete()
+    .eq("tournament_id", tournamentId)
+    .eq("user_id", session.user.id)
+    .is("team_id", null);
+
   await createNotification({
     userId: tournament.owner_id,
     tournamentId,
@@ -169,13 +177,21 @@ export async function joinTeam(
 
   if (existingMember) return { error: "You are already in a team for this tournament" };
 
-  const { error } = await supabaseAdmin.from("team_members").insert({
+  const { error: memberError2 } = await supabaseAdmin.from("team_members").insert({
     team_id: teamId,
     user_id: session.user.id,
     display_name: session.user.name || session.user.email,
   });
 
-  if (error) return { error: error.message };
+  if (memberError2) return { error: memberError2.message };
+
+  // Remove the old unassigned participant row so they don't appear as unassigned
+  await supabaseAdmin
+    .from("participants")
+    .delete()
+    .eq("tournament_id", tournamentId)
+    .eq("user_id", session.user.id)
+    .is("team_id", null);
 
   const memberName = session.user.name || session.user.email;
   await createNotification({
