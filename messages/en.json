@@ -261,5 +261,23 @@
     "status_open": "Open",
     "status_live": "Live",
     "status_ended": "Ended"
+  },
+  "pdf": {
+    "button": "Download PDF",
+    "teams_title": "Teams",
+    "matches_title": "Matches",
+    "round": "Round",
+    "vs": "vs.",
+    "members": "Members",
+    "no_members": "No members",
+    "format": "Format",
+    "dates": "Dates",
+    "tbd": "TBD",
+    "bye": "Bye",
+    "generated": "Generated",
+    "page": "Page",
+    "of": "of",
+    "losers_round": "Losers Round · ",
+    "filename_suffix": "_TournamentPlan"
   }
 }

@@ -12,6 +12,7 @@ import { MatchesView } from "./matches-view";
 import { ParticipantManager } from "./participant-manager";
 import { QRCodeDialog } from "./qr-code-dialog";
 import { TeamAssignment } from "./team-assignment";
+import { TournamentPlanPDF } from "@/components/tournament-plan-pdf";
 import type { Tournament } from "@/lib/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -155,6 +156,35 @@ export default async function TournamentPage({
             <Button variant="outline" size="sm" asChild>
               <Link href={`/tournaments/${id}/edit`}>{dict.common.edit}</Link>
             </Button>
+            <TournamentPlanPDF
+              tournament={tournament}
+              matches={matches}
+              participants={participants}
+              teams={participants.filter((p) => p.team).map((p) => ({
+                id: p.team!.id,
+                name: p.team!.name,
+                members: p.teamMembers.map((m) => ({ id: m.id, display_name: m.display_name })),
+              }))}
+              locale={locale}
+              labels={{
+                pdf_button: dict.pdf.button,
+                teams_title: dict.pdf.teams_title,
+                matches_title: dict.pdf.matches_title,
+                round: dict.pdf.round,
+                vs: dict.pdf.vs,
+                members: dict.pdf.members,
+                no_members: dict.pdf.no_members,
+                format: dict.pdf.format,
+                dates: dict.pdf.dates,
+                tbd: dict.pdf.tbd,
+                bye: dict.pdf.bye,
+                generated: dict.pdf.generated,
+                page: dict.pdf.page,
+                of: dict.pdf.of,
+                losers_round: dict.pdf.losers_round,
+                filename_suffix: dict.pdf.filename_suffix,
+              }}
+            />
             <TournamentActions tournament={tournament} />
           </div>
         )}
